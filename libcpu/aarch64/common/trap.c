@@ -10,6 +10,7 @@
 
 #include <rtthread.h>
 #include <rthw.h>
+#include <rtdef.h>
 #include <board.h>
 
 #include <armv8.h>
@@ -61,18 +62,18 @@ void rt_hw_trap_irq(void)
 {
 #ifndef BSP_USING_GIC
     void *param;
-    uint32_t irq;
+    rt_uint32_t irq;
     rt_isr_handler_t isr_func;
     extern struct rt_irq_desc isr_table[];
-    uint32_t value = IRQ_PEND_BASIC & 0x3ff;
+    rt_uint32_t value = IRQ_PEND_BASIC & 0x3ff;
 
 #ifdef RT_USING_SMP
-    uint32_t cpu_id = rt_hw_cpu_id();
-    uint32_t mailbox_data = IPI_MAILBOX_CLEAR(cpu_id);
+    rt_uint32_t cpu_id = rt_hw_cpu_id();
+    rt_uint32_t mailbox_data = IPI_MAILBOX_CLEAR(cpu_id);
 #else
-    uint32_t cpu_id = 0;
+    rt_uint32_t cpu_id = 0;
 #endif
-    uint32_t int_source = CORE_IRQSOURCE(cpu_id) & 0x3ff;
+    rt_uint32_t int_source = CORE_IRQSOURCE(cpu_id) & 0x3ff;
 
     if (int_source & 0x02)
     {

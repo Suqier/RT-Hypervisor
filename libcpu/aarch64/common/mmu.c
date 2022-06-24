@@ -1,40 +1,22 @@
 /*
- * Copyright (c) 2006-2021, RT-Thread Development Team
+ * Copyright (c) 2006-2022, RT-Thread Development Team
  *
  * SPDX-License-Identifier: Apache-2.0
  *
  * Change Logs:
  * Date           Author       Notes
  * 2021-11-28     GuEe-GUI     first version
+ * 2022-06-03     Suqier       add comment for memory attribute
+ *                             modify rt_hw_mmu_init() for RT_HYPERVISOR
  */
 
 #include <rtthread.h>
 #include <rthw.h>
 
 #include <cpuport.h>
-#include <mmu.h>
+#include <lib_helpers.h>
 
-#define ARCH_SECTION_SHIFT  21
-#define ARCH_SECTION_SIZE   (1 << ARCH_SECTION_SHIFT)
-#define ARCH_SECTION_MASK   (ARCH_SECTION_SIZE - 1)
-#define ARCH_PAGE_SHIFT     12
-#define ARCH_PAGE_SIZE      (1 << ARCH_PAGE_SHIFT)
-#define ARCH_PAGE_MASK      (ARCH_PAGE_SIZE - 1)
-
-#define MMU_LEVEL_MASK      0x1ffUL
-#define MMU_LEVEL_SHIFT     9
-#define MMU_ADDRESS_BITS    39
-#define MMU_ADDRESS_MASK    0x0000fffffffff000UL
-#define MMU_ATTRIB_MASK     0xfff0000000000ffcUL
-
-#define MMU_TYPE_MASK       3UL
-#define MMU_TYPE_USED       1UL
-#define MMU_TYPE_BLOCK      1UL
-#define MMU_TYPE_TABLE      3UL
-#define MMU_TYPE_PAGE       3UL
-
-#define MMU_TBL_BLOCK_2M_LEVEL  2
-#define MMU_TBL_PAGE_NR_MAX     32
+#include "mmu.h"
 
 /* only map 4G io/memory */
 static volatile unsigned long MMUTable[512] __attribute__((aligned(4096)));
@@ -189,41 +171,53 @@ void rt_hw_mmu_tlb_invalidate(void)
         "dsb sy\n\r"
         "isb sy");
 }
-
+/*
+ * When FEAT_VHE is implemented, and HCR_EL2.E2H is set to 1, when executing at 
+ * EL2, some EL1 System register access instructions are redefined to access the
+ * equivalent EL2 register.
+ * 
+ * These register includes:
+ * SCTLR_EL1 / CPACR_EL1 / TRFCR_EL1 / TTBR0_EL1 / TTBR1_EL1 / TCR_EL1
+ * AFSR0_EL1 / AFSR1_EL1 / ESR_EL1   / FAR_EL1   / MAIR_EL1  / AMAIR_EL1
+ * VBAR_EL1  /     CONTEXTIDR_EL1    /      CNTKCTL_EL1      / CNTP_TVAL_EL0
+ * CNTP_CTL_EL0 / CNTP_CVAL_EL0 / CNTV_TVAL_EL0 / CNTV_CTL_EL0 / CNTV_CVAL_EL0
+ * SPSR_EL1 / ELR_EL1
+ */
 void rt_hw_mmu_init(void)
 {
-    unsigned long reg_val;
-
-    reg_val = 0x00447fUL;
-    __asm__ volatile("msr mair_el1, %0"::"r"(reg_val));
-
+    /**
+     *                 Attr2    Attr1    Attr0
+     * 0x00447fUL = 0b00000000 01000100 01111111
+     * Attr2: Device-nGnRnE memory
+     * Attr1: Normal memory, Outer Non-cacheable, 
+     *        Inner Non-cacheable
+     * Attr0: Normal memory, Outer Write-Back Transient, 
+     *        Inner Write-Back Non-transient
+     * 
+     * If use RT_HYPERVISOR, write mair_el2 / tcr_el2 / 
+     * sctlr_el2 / ttbr0_el2 and set MMU at EL2 actually.
+     */ 
+    rt_uint64_t reg_val = 0x00447fUL;
+    SET_SYS_REG(MAIR_EL1, reg_val);     
     rt_hw_isb();
 
-    reg_val = (16UL << 0)   /* t0sz 48bit */
-            | (0UL  << 6)   /* reserved */
-            | (0UL  << 7)   /* epd0 */
-            | (3UL  << 8)   /* t0 wb cacheable */
-            | (3UL  << 10)  /* inner shareable */
-            | (2UL  << 12)  /* t0 outer shareable */
-            | (0UL  << 14)  /* t0 4K */
-            | (16UL << 16)  /* t1sz 48bit */
-            | (0UL  << 22)  /* define asid use ttbr0.asid */
-            | (0UL  << 23)  /* epd1 */
-            | (3UL  << 24)  /* t1 inner wb cacheable */
-            | (3UL  << 26)  /* t1 outer wb cacheable */
-            | (2UL  << 28)  /* t1 outer shareable */
-            | (2UL  << 30)  /* t1 4k */
-            | (1UL  << 32)  /* 001b 64GB PA */
-            | (0UL  << 35)  /* reserved */
-            | (1UL  << 36)  /* as: 0:8bit 1:16bit */
-            | (0UL  << 37)  /* tbi0 */
-            | (0UL  << 38); /* tbi1 */
-    __asm__ volatile("msr tcr_el1, %0"::"r"(reg_val));
+    reg_val = 0UL;
+    reg_val &= ~( TCR_RES0 
+                | TCR_EPD0  /* Perform translation table walks using ttbr0_el2. */
+                | TCR_A1    /* ttbr0_el2.ASID defines the ASID.  */
+                | TCR_EPD1  /* Perform translation table walks using ttbr1_el2. */
+                | TCR_TBI0  /* Top Byte used in the address calculation. */
+                | TCR_TBI1 );
+    reg_val |= (TCR_T0SZ(48)  | TCR_IRGN0_WBNWA | TCR_ORGN0_WBNWA
+              | TCR_SH0_OUTER | TCR_TG0_4KB
+              | TCR_T1SZ(48)  | TCR_IRGN1_WBNWA | TCR_ORGN1_WBNWA
+              | TCR_SH0_OUTER | TCR_TG1_4KB     
+              | TCR_IPS_64GB  | TCR_ASID16);
 
+    SET_SYS_REG(TCR_EL1, reg_val);
     rt_hw_isb();
 
-    __asm__ volatile ("mrs %0, sctlr_el1":"=r"(reg_val));
-
+    GET_SYS_REG(SCTLR_EL1, reg_val);
     reg_val |= 1 << 2;  /* enable dcache */
     reg_val |= 1 << 0;  /* enable mmu */
 

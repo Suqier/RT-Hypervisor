@@ -6,6 +6,7 @@
  * Date           Author       Notes
  * 2018-10-06     ZhaoXiaowei  the first version
  * 2022-02-16     GuEe-GUI     replace vectors entry to macro
+ * 2022-06-04     Suqier       add RT_HYPERVISOR support
  */
 
 .macro  ventry label
@@ -14,6 +15,10 @@
 .endm
 
 .globl system_vectors
+
+#if defined(RT_HYPERVISOR)
+.globl vector_low_sync
+#endif  /* RT_HYPERVISOR */
 .globl vector_error
 .globl vector_irq
 .globl vector_fiq
@@ -32,7 +37,11 @@ system_vectors:
     ventry  vector_error    /* SError/vSError */
 
     /* Exception from lower EL, aarch64 */
+#if defined(RT_HYPERVISOR)
+    ventry  vector_low_sync /* Synchronous */
+#else
     ventry  vector_error    /* Synchronous */
+#endif
     ventry  vector_error    /* IRQ/vIRQ */
     ventry  vector_error    /* FIQ/vFIQ */
     ventry  vector_error    /* SError/vSError */

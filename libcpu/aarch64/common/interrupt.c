@@ -7,6 +7,7 @@
  * Date           Author       Notes
  * 2013-07-06     Bernard      first version
  * 2018-11-22     Jesven       add smp support
+ * 2022-06-06     Suqier       add hypervisor support
  */
 
 #include <rthw.h>

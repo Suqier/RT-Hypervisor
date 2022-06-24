@@ -8,6 +8,7 @@
  * 2018-10-06     ZhaoXiaowei  the first version
  * 2021-11-04     GuEe-GUI     set sp with SP_ELx
  * 2021-12-28     GuEe-GUI     add fpu and smp support
+ * 2022-06-04     Suqier       add RT_HYPERVISOR support
  */
 
 #include "rtconfig.h"
@@ -15,42 +16,41 @@
 
 #ifdef RT_USING_SMP
 #define rt_hw_interrupt_disable rt_hw_local_irq_disable
-#define rt_hw_interrupt_enable rt_hw_local_irq_enable
+#define rt_hw_interrupt_enable  rt_hw_local_irq_enable
 #endif
 
 /*
- *enable gtimer
+ * enable gtimer
  */
 .globl rt_hw_gtimer_enable
 rt_hw_gtimer_enable:
     MOV X0,#1
-    MSR CNTP_CTL_EL0,X0
+    MSR CNTP_CTL_EL0, X0
     RET
 
 /*
- *disable gtimer
+ * disable gtimer
  */
 .globl rt_hw_gtimer_disable
 rt_hw_gtimer_disable:
-    MSR CNTP_CTL_EL0,XZR
+    MSR CNTP_CTL_EL0, XZR
     RET
 
 /*
- *set gtimer CNTP_TVAL_EL0 value
+ * set gtimer CNTP_TVAL_EL0 value
  */
 .globl rt_hw_set_gtimer_val
 rt_hw_set_gtimer_val:
-    MSR CNTP_TVAL_EL0,X0
+    MSR CNTP_TVAL_EL0, X0
     RET
 
 /*
- *get gtimer CNTP_TVAL_EL0 value
+ * get gtimer CNTP_TVAL_EL0 value
  */
 .globl rt_hw_get_gtimer_val
 rt_hw_get_gtimer_val:
-    MRS X0,CNTP_TVAL_EL0
+    MRS X0, CNTP_TVAL_EL0
     RET
-
 
 .globl rt_hw_get_cntpct_val
 rt_hw_get_cntpct_val:
@@ -58,15 +58,15 @@ rt_hw_get_cntpct_val:
     RET
 
 /*
- *get gtimer frq value
+ * get gtimer frq value
  */
 .globl rt_hw_get_gtimer_frq
 rt_hw_get_gtimer_frq:
-    MRS X0,CNTFRQ_EL0
+    MRS X0, CNTFRQ_EL0
     RET
 
 /*
- *set gtimer frq value (only in EL3)
+ * set gtimer frq value (only in EL3)
  */
 .globl rt_hw_set_gtimer_frq
 rt_hw_set_gtimer_frq:
@@ -96,8 +96,8 @@ rt_hw_set_gtimer_frq_exit:
     STP     X24, X25, [SP, #-0x10]!
     STP     X26, X27, [SP, #-0x10]!
     STP     X28, X29, [SP, #-0x10]!
-    MRS     X28, FPCR
-    MRS     X29, FPSR
+    MRS     X28, FPCR   /* Floating-point Control Register */
+    MRS     X29, FPSR   /* Floating-point Status Register */
     STP     X28, X29, [SP, #-0x10]!
     STP     X30, XZR, [SP, #-0x10]!
 
@@ -414,3 +414,17 @@ vector_error:
     SAVE_CONTEXT
     BL      rt_hw_trap_error
     B       .
+
+// -------------------------------------------------
+#if defined(RT_HYPERVISOR)
+
+    .align  8
+    .globl  vector_low_sync
+vector_low_sync:
+    SAVE_CONTEXT
+    STP     X0, X1, [SP, #-0x10]!
+    BL      rt_hw_trap_sync
+    LDP     X0, X1, [SP], #0x10
+    RESTORE_CONTEXT
+
+#endif  /* RT_HYPERVISOR */

@@ -1,0 +1,17 @@
+# RT-Thread building script for VHE
+
+from building import *
+
+Import('rtconfig')
+
+cwd     = GetCurrentDir()
+src     = []
+CPPPATH = [cwd]
+
+
+if GetDepend('RT_HYPERVISOR') and GetDepend('ARCH_FEAT_VHE'):
+    src = Glob('*.c') + Glob('*.cpp') + Glob('*.S')
+
+group = DefineGroup('vhe', src, depend = [''], CPPPATH = CPPPATH)
+
+Return('group')

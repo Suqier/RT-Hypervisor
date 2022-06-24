@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2021, RT-Thread Development Team
+ * Copyright (c) 2006-2022, RT-Thread Development Team
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -7,6 +7,7 @@
  * Date           Author       Notes
  * 2011-09-15     Bernard      first version
  * 2021-12-28     GuEe-GUI     add fpu support
+ * 2022-06-02     Suqier       add cpu register macro
  */
 
 #ifndef __ARMV8_H__

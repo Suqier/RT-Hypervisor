@@ -5,7 +5,7 @@
  *
  * Change Logs:
  * Date           Author       Notes
- * 2022-3-08      GuEe-GUI     the first version
+ * 2022-03-08     GuEe-GUI     the first version
  */
 
 #ifndef __RK3568_H__

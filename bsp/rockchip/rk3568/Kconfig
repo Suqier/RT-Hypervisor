@@ -24,6 +24,7 @@ config SOC_RK3568
     select ARCH_CPU_64BIT
     select RT_USING_COMPONENTS_INIT
     select RT_USING_USER_MAIN
+    select ARCH_FEAT_VHE
     default y
 
 source "$BSP_DIR/driver/Kconfig"

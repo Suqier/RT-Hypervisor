@@ -1,0 +1,5 @@
+menuconfig RT_HYPERVISOR
+    bool "Hypervisor: using rt-thread as hypervisor"
+    default n
+    help
+        Type-2 Hypervisor.

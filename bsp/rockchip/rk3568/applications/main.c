@@ -9,10 +9,15 @@
  */
 
 #include <rtthread.h>
+#include <armv8.h>
+#include <lib_helpers.h>
 
 int main(int argc, char** argv)
 {
     rt_kprintf("Hi, this is RT-Thread!!\n");
+    
+    rt_ubase_t currEL = rt_hw_get_current_el();
+    rt_kprintf("Now is at EL%d\n", currEL);
 
     return 0;
 }

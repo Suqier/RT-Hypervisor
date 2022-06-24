@@ -54,6 +54,10 @@
 #define RT_VER_NUM 0x40100
 #define ARCH_CPU_64BIT
 #define ARCH_ARMV8
+#define ARCH_FEAT_VHE
+#define RT_HYPERVISOR
+#define RT_USING_SMP
+#define RT_CPUS_NR  4
 
 /* RT-Thread Components */
 
@@ -173,6 +177,7 @@
 
 
 /* miscellaneous packages */
+#define PKG_USING_OPTPARSE
 
 /* project laboratory */
 

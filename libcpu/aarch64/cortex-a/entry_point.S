@@ -8,6 +8,8 @@
  * 2020-08-10     SummerGift   support clang compiler
  * 2021-11-04     GuEe-GUI     set sp with SP_ELx
  * 2021-12-28     GuEe-GUI     add smp support
+ * 2022-06-02     Suqier       add rt_arm64_bss_zero()
+ *                             add hypervisor support
  */
 
 #include "rtconfig.h"
@@ -111,6 +113,13 @@ cpu_in_el2:
     orr     x0, x0, #(1 << 1)       /* SWIO hardwired on Pi3 */
     msr     hcr_el2, x0
 
+#ifdef RT_HYPERVISOR
+    msr     spsel, #1
+    mov     sp, x1
+
+    bl      rt_hypervisor_el2_setup
+    b       clean_bss
+#else
     mov     x2, #5                  /* Next level is 0b0101->EL1h */
     orr     x2, x2, #(1 << 6)       /* Mask FIQ */
     orr     x2, x2, #(1 << 7)       /* Mask IRQ */
@@ -120,6 +129,7 @@ cpu_in_el2:
     adr     x2, cpu_in_el1
     msr     elr_el2, x2
     eret
+#endif  /* RT_HYPERVISOR */
 
 cpu_in_el1:
     msr     spsel, #1
@@ -135,33 +145,15 @@ cpu_in_el1:
     bic     x1, x1, #(1 << 1)       /* Disable Alignment check */
     msr     sctlr_el1, x1
 
+/* boot core goto clean bss, others goto secondary_cpu_c_start*/
+clean_bss:
 #ifdef RT_USING_SMP
     ldr     x1, =_start
     cmp     sp, x1
     bne     secondary_cpu_c_start
 #endif /* RT_USING_SMP */
 
-    ldr     x0, =__bss_start
-    ldr     x1, =__bss_end
-    sub     x2, x1, x0
-    mov     x3, x1
-    cmp     x2, #7
-    bls     clean_bss_check
-
-clean_bss_loop_quad:
-    str     xzr, [x0], #8
-    sub     x2, x3, x0
-    cmp     x2, #7
-    bhi     clean_bss_loop_quad
-    cmp     x1, x0
-    bls     jump_to_entry
-
-clean_bss_loop_byte:
-    str     xzr, [x0], #1
-
-clean_bss_check:
-    cmp     x1, x0
-    bhi     clean_bss_loop_byte
+    bl      rt_arm64_bss_zero
 
 jump_to_entry:
     b       rtthread_startup

@@ -701,7 +701,13 @@ struct rt_thread
     void        *lwp;
 #endif /* RT_USING_LWP */
 
-    rt_ubase_t user_data;                             /**< private user data beyond this thread */
+    union 
+    {
+        rt_ubase_t user_data;                           /**< private user data beyond this thread */    
+#ifdef RT_HYPERVISOR
+		struct vcpu *vcpu;
+#endif  /* RT_HYPERVISOR */
+	};
 };
 typedef struct rt_thread *rt_thread_t;
 

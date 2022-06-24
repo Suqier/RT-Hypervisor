@@ -1,0 +1,13 @@
+# RT-Thread building script for Hypervisor
+from building import *
+
+cwd     = GetCurrentDir()
+src     = []
+CPPPATH = [cwd]
+
+if GetDepend('RT_HYPERVISOR'):
+    src = Glob('*.c') + Glob('*.cpp') + Glob('*.S')
+
+group = DefineGroup('Hypervisor', src, depend = ['RT_HYPERVISOR'], CPPPATH = CPPPATH)
+
+Return('group')
