@@ -16,8 +16,12 @@
 #include <vm_arch.h>
 
 #include "mm.h"
+#include "os.h"
+
+#define THREAD_TIMESLICE    5
 
 #define MAX_VCPU_NUM    4      /* per vm */
+#define MAX_OS_TYPE     2
 #define VM_NAME_SIZE    16
 #define MAX_VM_NUM      64
 #define L1_CACHE_BYTES  64
@@ -31,24 +35,18 @@ enum
     VM_STATUS_UNKNOWN,
 };
 
-enum
-{
-    OS_TYPE_LINUX = 0,
-    OS_TYPE_RT_THREAD,
-    OS_TYPE_RT_ZEPHYR,
-    OS_TYPE_OTHER,
-};
-
 struct vcpu
 {
     rt_uint32_t vcpu_id;
     
     struct vm *vm;
     struct vcpu *next;
-    
+    struct rt_thread *thread;
+
     struct vcpu_arch arch;  /* vcpu arch related content. */
 
 }__attribute__((aligned(L1_CACHE_BYTES)));
+
 
 struct vm
 {
@@ -57,16 +55,10 @@ struct vm
     rt_uint16_t status;
     
     char name[VM_NAME_SIZE];
-    rt_uint16_t os_type;
-    
-    struct mm_struct mm;    /* userspace tied to this vm */
+    struct mm_struct *mm;    /* userspace tied to this vm */
+    const struct os_desc *os;
 
-    void *entry_point;
-
-    char *os_path;
-    char *ramdisk_path;
-    char *dtb_path; 
-
+    rt_hw_spinlock_t vm_lock;
     struct vm_arch arch;
 
     /* A array for collect vcpu. */
@@ -118,8 +110,11 @@ rt_uint16_t vm_os_type(const char *os_type_str);
 
 void vm_config_init(struct vm *vm, rt_uint16_t vm_idx);
 rt_err_t vm_init(struct vm *vm);
-void vm_go(struct vm *vm);
-void vm_pause(struct vm *vm);
+void go_vm(struct vm *vm);
+void suspend_vm(struct vm *vm);
+void shutdown_vm(struct vm *vm);
+void free_vm(struct vm *vm);
+
 
 // #endif  /* defined(RT_HYPERVISOR) */ 
 

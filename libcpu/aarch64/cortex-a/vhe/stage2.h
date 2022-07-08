@@ -28,10 +28,10 @@
 /* Attribute fields in stage 2 VMSAv8-64 Block and Page descriptors */
 /* Upper attr */
 #define S2_XN_SHIFT        (53)
-#define S2_XN_EL0_EL1      (0b00 << S2_XN_SHIFT)
-#define S2_XN_EL0          (0b01 << S2_XN_SHIFT)
-#define S2_XN_NONE         (0b10 << S2_XN_SHIFT)
-#define S2_XN_EL1          (0b11 << S2_XN_SHIFT)
+#define S2_XN_EL0_EL1      (0b00UL << S2_XN_SHIFT)
+#define S2_XN_EL0          (0b01UL << S2_XN_SHIFT)
+#define S2_XN_NONE         (0b10UL << S2_XN_SHIFT)
+#define S2_XN_EL1          (0b11UL << S2_XN_SHIFT)
 
 #define S2_CONTIGUOUS      (1UL << 52)
 #define S2_DBM             (1UL << 51)
@@ -113,25 +113,29 @@
 #define S2_PMD_NUM		    	RT_MM_PAGE_SIZE / (sizeof(rt_uint64_t))
 #define S2_PTE_NUM			    RT_MM_PAGE_SIZE / (sizeof(rt_uint64_t))
 
-#define IS_PUD_ALIGN(va)    (!((rt_uint64_t)(va) & (S2_PUD_SIZE - 1)))
-#define IS_BLOCK_ALIGN(x)	(!((rt_uint64_t)(x) & (0x1fffffUL)))
-#define IS_PAGE_ALIGN(x)	(!((rt_uint64_t)(x) & (RT_MM_PAGE_SIZE - 1)))
+#define IS_PUD_ALIGN(x)         (!((rt_uint64_t)(x) & (S2_PUD_SIZE - 1)))
+#define IS_BLOCK_ALIGN(x)	    (!((rt_uint64_t)(x) & (S2_PMD_SIZE - 1)))
+#define IS_PAGE_ALIGN(x)	    (!((rt_uint64_t)(x) & (S2_PTE_SIZE - 1)))
 
-#define S2_PGD_IDX(va)      (((va) >> S2_PGD_SHIFT) & (S2_PGD_NUM - 1))
-#define S2_PUD_IDX(va)      (((va) >> S2_PUD_SHIFT) & (S2_PUD_NUM - 1))
-#define S2_PMD_IDX(va)      (((va) >> S2_PMD_SHIFT) & (S2_PMD_NUM - 1))
-#define S2_PTE_IDX(va)      (((va) >> S2_PTE_SHIFT) & (S2_PTE_NUM - 1)) /* [20:12] */
+#define S2_PGD_IDX(va)          (((va) >> S2_PGD_SHIFT) & (S2_PGD_NUM - 1))
+#define S2_PUD_IDX(va)          (((va) >> S2_PUD_SHIFT) & (S2_PUD_NUM - 1))
+#define S2_PMD_IDX(va)          (((va) >> S2_PMD_SHIFT) & (S2_PMD_NUM - 1))
+#define S2_PTE_IDX(va)          (((va) >> S2_PTE_SHIFT) & (S2_PTE_NUM - 1)) /* [20:12] */
 
 #define S2_PGD_OFFSET(pgd_ptr, va)   ((pgd_t *)(pgd_ptr) + S2_PGD_IDX((rt_uint64_t)va))
 #define S2_PUD_OFFSET(pud_ptr, va)   ((pud_t *)(pud_ptr) + S2_PUD_IDX((rt_uint64_t)va))
 #define S2_PMD_OFFSET(pmd_ptr, va)   ((pmd_t *)(pmd_ptr) + S2_PMD_IDX((rt_uint64_t)va))
 #define S2_PTE_OFFSET(pte_ptr, va)   ((pte_t *)(pte_ptr) + S2_PTE_IDX((rt_uint64_t)va))
 
-#define NEXT_LEVEL_ADDR_MASK    (0xffffffff0000UL)
+#define NEXT_LEVEL_TABLE_ADDR_MASK      (0xFFFFFFFFF000UL)  /* with the 4KB granule size*/
+#define LEVEL1_BLOCK_OUTPUT_ADDR_MASK   (0xFFFFC0000000UL)  /* [47:30] */
+#define LEVEL2_BLOCK_OUTPUT_ADDR_MASK   (0xFFFFFFF00000UL)  /* [47:21] */
 
 #define WRITE_ONCE(x, val)    *(volatile typeof(x) *)&(x) = (val);
 
-void *alloc_guest_pgd(void);
+struct mm_struct;
+
+void *alloc_vm_pgd(void);
 rt_err_t stage2_translate(struct mm_struct *mm, rt_uint64_t va, rt_ubase_t *pa);
 rt_err_t stage2_map(struct mm_struct *mm, struct mem_desc *desc);
 rt_err_t stage2_unmap(struct mm_struct *mm, rt_ubase_t va, rt_ubase_t va_end);

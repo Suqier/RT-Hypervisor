@@ -13,7 +13,8 @@ OUTPUT_ARCH(aarch64)
 
 SECTIONS
 {
-    . = 0x208000;
+    . = 0x09408000;
+    /* . = 0x208000; */
     . = ALIGN(4096);
     .text :
     {
@@ -39,6 +40,13 @@ SECTIONS
         __vsymtab_start = .;
         KEEP(*(VSymTab))
         __vsymtab_end = .;
+        . = ALIGN(16);
+
+        /* section information for hypervisor sync_handler */
+        . = ALIGN(16);
+        __sync_desc_start = .;
+        KEEP(*(SyncDesc))
+        __sync_desc_end = .;
         . = ALIGN(16);
 
         /* section information for initial. */

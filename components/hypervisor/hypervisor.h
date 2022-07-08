@@ -12,6 +12,12 @@
 #define __HYPERVISOR_H__
 
 #include <rthw.h>
+#include <rtthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <optparse.h>
+#include <vhe.h>
 
 // #if defined(RT_HYPERVISOR) 
 #include "vm.h"
@@ -35,19 +41,20 @@ struct hypervisor
     rt_uint16_t total_vm;
     struct vm *vms[MAX_VM_NUM];
 
-    struct hyp_arch *arch;
+    struct hyp_arch arch;
 };
 
 rt_err_t rt_hypervisor_init(void);
 
-long list_vm(void);
+void list_os_img(void);
+void list_vm(void);
 void help_vm(void);
 rt_err_t create_vm(int argc, char **argv);
-rt_err_t setup_vm(int argc, char **argv);
-rt_err_t run_vm(int vm_idx);
-rt_err_t pause_vm(int vm_idx);
-rt_err_t halt_vm(int vm_idx);
-rt_err_t delete_vm(rt_uint16_t vm_idx);
+void pick_vm(int argc, char **argv);
+rt_err_t run_vm(void);
+rt_err_t pause_vm(void);
+rt_err_t halt_vm(void);
+rt_err_t delete_vm(void);
 
 // #endif  /* defined(RT_HYPERVISOR) */ 
 

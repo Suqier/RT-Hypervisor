@@ -39,7 +39,7 @@ static unsigned long _kernel_free_page(void)
     return (unsigned long)&MMUPage[i - 1].entry;
 }
 
-static int _kenrel_map_2M(unsigned long *tbl, unsigned long va, unsigned long pa, unsigned long attr)
+static int _kernel_map_2M(unsigned long *tbl, unsigned long va, unsigned long pa, unsigned long attr)
 {
     int level;
     unsigned long *cur_lv_tbl = tbl;
@@ -132,7 +132,7 @@ int rt_hw_mmu_setmtt(unsigned long vaddr_start, unsigned long vaddr_end,
 
     for (i = 0; i < count; i++)
     {
-        ret = _kenrel_map_2M((void *)MMUTable, vaddr_start, paddr_start, map_attr);
+        ret = _kernel_map_2M((void *)MMUTable, vaddr_start, paddr_start, map_attr);
         vaddr_start += ARCH_SECTION_SIZE;
         paddr_start += ARCH_SECTION_SIZE;
 

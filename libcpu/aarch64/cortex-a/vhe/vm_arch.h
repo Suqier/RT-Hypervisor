@@ -21,7 +21,7 @@
  *  It will be used by hypervisor.
  */
 
-struct user_pt_regs
+struct gp_regs
 {
     rt_uint64_t regs[31];
     rt_uint64_t sp;
@@ -87,7 +87,7 @@ enum vcpu_sysreg
 
 struct vcpu_context 
 {
-    struct user_pt_regs regs;   /* sp = sp_el0 */
+    struct gp_regs regs;   /* sp = sp_el0 */
 
     rt_uint64_t sys_regs[NR_SYS_REGS];
 
@@ -108,6 +108,7 @@ struct vm_arch
 {
 	/* VTCR_EL2 value for this VM */
 	rt_uint64_t vtcr_el2;
+	rt_uint64_t vttbr_el2;
 
 	/* Interrupt controller */
 	// struct vgic_dist vgic;

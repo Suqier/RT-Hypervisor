@@ -23,9 +23,10 @@ static void __flush_all_tlb(void)
 
 void flush_guest_all_tlb(struct mm_struct *mm)
 {
-    struct vm* vm = rt_container_of(mm, struct vm, mm);
-    rt_uint64_t vttbr = (*(mm->pgd_tbl) & VA_MASK) 
-                      | (rt_uint64_t)vm->vm_idx << VMID_SHIFT;
+    struct vm* vm = mm->vm;
+
+    rt_uint64_t vttbr;
+    vttbr = (*(mm->pgd_tbl) & VA_MASK) | (rt_uint64_t)vm->vm_idx << VMID_SHIFT;
     
     rt_hw_spin_lock(&mm->lock);
     SET_SYS_REG(VTTBR_EL2, vttbr);

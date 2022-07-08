@@ -10,8 +10,6 @@
 
 // #if defined(RT_HYPERVISOR) && defined(ARCH_FEAT_VHE)
 
-#include <lib_helpers.h>
-
 #include "vhe.h"
 
 rt_bool_t arm_vhe_supported(void)

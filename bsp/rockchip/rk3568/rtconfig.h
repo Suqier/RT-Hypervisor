@@ -7,6 +7,8 @@
 /* RT-Thread Kernel */
 
 #define RT_NAME_MAX 8
+#define RT_USING_SMP
+#define RT_CPUS_NR 4
 #define RT_ALIGN_SIZE 4
 #define RT_THREAD_PRIORITY_32
 #define RT_THREAD_PRIORITY_MAX 32
@@ -17,12 +19,14 @@
 #define RT_USING_IDLE_HOOK
 #define RT_IDLE_HOOK_LIST_SIZE 4
 #define IDLE_THREAD_STACK_SIZE 4096
+#define SYSTEM_THREAD_STACK_SIZE 4096
 #define RT_USING_TIMER_SOFT
 #define RT_TIMER_THREAD_PRIO 4
 #define RT_TIMER_THREAD_STACK_SIZE 4096
 
 /* kservice optimization */
 
+#define RT_KPRINTF_USING_LONGLONG
 #define RT_DEBUG
 #define RT_DEBUG_COLOR
 
@@ -51,13 +55,9 @@
 #define RT_USING_CONSOLE
 #define RT_CONSOLEBUF_SIZE 128
 #define RT_CONSOLE_DEVICE_NAME "uart2"
-#define RT_VER_NUM 0x40100
+#define RT_VER_NUM 0x40101
 #define ARCH_CPU_64BIT
 #define ARCH_ARMV8
-#define ARCH_FEAT_VHE
-#define RT_HYPERVISOR
-#define RT_USING_SMP
-#define RT_CPUS_NR  4
 
 /* RT-Thread Components */
 
@@ -108,9 +108,23 @@
 
 /* Utilities */
 
+#define RT_USING_ULOG
+#define ULOG_OUTPUT_LVL_D
+#define ULOG_OUTPUT_LVL 7
+#define ULOG_USING_ISR_LOG
+#define ULOG_ASSERT_ENABLE
+#define ULOG_LINE_BUF_SIZE 128
 
-/* RT-Thread Utestcases */
+/* log format */
 
+#define ULOG_USING_COLOR
+#define ULOG_OUTPUT_TIME
+#define ULOG_TIME_USING_TIMESTAMP
+#define ULOG_OUTPUT_LEVEL
+#define ULOG_OUTPUT_TAG
+#define ULOG_OUTPUT_THREAD_NAME
+#define ULOG_BACKEND_USING_CONSOLE
+#define RT_HYPERVISOR
 
 /* RT-Thread online packages */
 
@@ -158,9 +172,6 @@
 /* enhanced kernel services */
 
 
-/* POSIX extension functions */
-
-
 /* acceleration: Assembly language or algorithmic acceleration packages */
 
 
@@ -177,7 +188,6 @@
 
 
 /* miscellaneous packages */
-#define PKG_USING_OPTPARSE
 
 /* project laboratory */
 
@@ -186,6 +196,8 @@
 
 /* entertainment: terminal games and other interesting software packages */
 
+#define PKG_USING_OPTPARSE
+#define PKG_USING_OPTPARSE_LATEST_VERSION
 #define SOC_RK3568
 
 /* Hardware Drivers Config */

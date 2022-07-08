@@ -10,4 +10,14 @@ if GetDepend('RT_HYPERVISOR'):
 
 group = DefineGroup('Hypervisor', src, depend = ['RT_HYPERVISOR'], CPPPATH = CPPPATH)
 
+# build for sub-directory
+list = os.listdir(cwd)
+objs = []
+
+for d in list:
+    path = os.path.join(cwd, d)
+    if os.path.isfile(os.path.join(path, 'SConscript')):
+        objs = objs + SConscript(os.path.join(d, 'SConscript'))
+group = group + objs
+
 Return('group')

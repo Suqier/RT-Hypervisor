@@ -422,9 +422,13 @@ vector_error:
     .globl  vector_low_sync
 vector_low_sync:
     SAVE_CONTEXT
-    STP     X0, X1, [SP, #-0x10]!
+
+    /* vm exit */
+
     BL      rt_hw_trap_sync
-    LDP     X0, X1, [SP], #0x10
+    
+    /* vm entry */
+
     RESTORE_CONTEXT
 
 #endif  /* RT_HYPERVISOR */
