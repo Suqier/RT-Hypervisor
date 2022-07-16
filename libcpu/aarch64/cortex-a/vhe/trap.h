@@ -16,7 +16,6 @@
 #include <smccc.h>
 
 #include "vhe.h"
-#include "vm_arch.h"
 #include "lib_helpers.h"
 
 // #if defined(RT_HYPERVISOR)

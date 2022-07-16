@@ -40,6 +40,7 @@ struct os_desc
     rt_uint64_t entry_point;
 
     rt_uint64_t os_addr;    /* without DFS, using memory address directly */
+    rt_uint64_t os_img_size;
     rt_uint64_t ramdisk_addr;
     rt_uint64_t dtb_addr;
 

@@ -13,8 +13,6 @@
 
 // #if defined(RT_HYPERVISOR)
 
-#include <vm_arch.h>
-
 #include "mm.h"
 #include "os.h"
 
@@ -26,14 +24,19 @@
 #define MAX_VM_NUM      64
 #define L1_CACHE_BYTES  64
 
-enum 
-{
-    VM_STATUS_OFFLINE = 0,
-    VM_STATUS_ONLINE,
-    VM_STATUS_SUSPEND,
-    VM_STATUS_NEVER_RUN,
-    VM_STATUS_UNKNOWN,
-};
+#define VCPU_JUST_CREATE        (0UL)
+#define VCPU_NEED_LOAD_REGS     (1 << 0)
+#define VCPU_NEED_SAVE_REGS     (1 << 1)
+
+#define VCPU_PENDING_EXCEPT	    (1 << 8) /* Exception pending */
+#define VCPU_INCREMENT_PC		(1 << 9) /* Increment PC */
+#define VCPU_EXCEPT_MASK		(7 << 9) /* Target EL/MODE */
+#define VCPU_EXCEPT_ELx_SYNC	(0 << 9)
+#define VCPU_EXCEPT_ELx_IRQ	    (1 << 9)
+#define VCPU_EXCEPT_ELx_FIQ	    (2 << 9)
+#define VCPU_EXCEPT_ELx_SERR	(3 << 9)
+#define VCPU_EXCEPT_EL1	        (0 << 11)
+#define VCPU_EXCEPT_EL2	        (1 << 11)
 
 struct vcpu
 {
@@ -43,10 +46,18 @@ struct vcpu
     struct vcpu *next;
     struct rt_thread *thread;
 
-    struct vcpu_arch arch;  /* vcpu arch related content. */
-
+    rt_uint64_t flag;
+    struct vcpu_arch *arch;  /* vcpu arch related content. */
 }__attribute__((aligned(L1_CACHE_BYTES)));
 
+enum 
+{
+    VM_STATUS_OFFLINE = 0,
+    VM_STATUS_ONLINE,
+    VM_STATUS_SUSPEND,
+    VM_STATUS_NEVER_RUN,
+    VM_STATUS_UNKNOWN,
+};
 
 struct vm
 {
@@ -59,7 +70,7 @@ struct vm
     const struct os_desc *os;
 
     rt_hw_spinlock_t vm_lock;
-    struct vm_arch arch;
+    struct vm_arch *arch;
 
     /* A array for collect vcpu. */
     rt_uint8_t nr_vcpus;
@@ -102,11 +113,6 @@ rt_inline struct vm *get_curr_vm(void)
 {
     return get_vm_by_thread(rt_thread_self());
 }
-
-char *vm_status_str(rt_uint16_t status);
-char *os_type_str(rt_uint16_t os_type);
-rt_uint16_t vm_status(const char *vm_status_str);
-rt_uint16_t vm_os_type(const char *os_type_str);
 
 void vm_config_init(struct vm *vm, rt_uint16_t vm_idx);
 rt_err_t vm_init(struct vm *vm);

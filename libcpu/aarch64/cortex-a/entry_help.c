@@ -8,6 +8,7 @@
  */
 
 #include <rtdef.h>
+#include <cpuport.h>
 
 extern unsigned char __bss_start;
 extern unsigned char __bss_end;
@@ -39,6 +40,8 @@ void rt_hypervisor_el2_setup(void)
 	val &= ~(CPTR_EL2_TAM_VHE);
 	val |= CPTR_EL2_FPEN_VHE;
 	SET_SYS_REG(CPTR_EL2, val);
+
+	__DSB();
 }
 #endif /* RT_HYPERVISOR */
 

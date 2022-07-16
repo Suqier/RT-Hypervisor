@@ -42,7 +42,7 @@ rt_bool_t arm_sve_supported(void);
 #define HCR_FMO     (1UL << 3)
 #define HCR_VM      (1UL << 0)
 
-#define HCR_GUEST_FLAGS		(HCR_TSC | HCR_TSW | HCR_TWE | HCR_TWI |\
+#define HCR_GUEST_FLAGS		(HCR_TSC | HCR_TSW | HCR_TWE | HCR_TWI | \
 							 HCR_VM  | HCR_TVM | HCR_BSU | HCR_FB  | \
 							 HCR_TAC | HCR_AMO | HCR_SWIO| HCR_TIDCP | HCR_RW)
 #define HCR_VIRT_EXCP_MASK 	(HCR_VSE | HCR_VI  | HCR_VF)
@@ -72,7 +72,8 @@ rt_bool_t arm_sve_supported(void);
 #define VTCR_EL2_RES0		((1UL << 20) | (3UL << 22) | (0x3FFFFFFFUL << 34))
 #define VTCR_EL2_RES1		(1UL << 31)
 
-#define VTCR_EL2_SL0_SHIFT	6
+#define VTCR_EL2_SL0_SHIFT		6
+#define VTCR_EL2_SL0_4KB_LEVEL1	(0b01 << VTCR_EL2_SL0_SHIFT)
 
 #define	VTCR_EL2_IRGN0_SHIFT	8
 #define	VTCR_EL2_IRGN0_NC		(0 << VTCR_EL2_IRGN0_SHIFT)

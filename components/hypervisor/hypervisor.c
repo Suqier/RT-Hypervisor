@@ -24,6 +24,9 @@ static int parameter[RT_CPUS_NR];
 // #if defined(RT_HYPERVISOR)
 
 extern const struct os_desc os_support[MAX_OS_TYPE];
+extern const char* vm_status_str[VM_STATUS_UNKNOWN + 1];
+extern const char* os_type_str[OS_TYPE_OTHER + 1];
+
 static struct hypervisor rt_hyp;
 
 int rt_hyp_init(void)
@@ -526,7 +529,7 @@ void list_os_img(void)
         if (os)
         {
             rt_kprintf("%-*.*s %5d %4.1d %6d\n", maxlen, VM_NAME_SIZE, 
-                    os_type_str(os->os_type), i, os->nr_vcpus, os->mm_size);
+                    os_type_str[os->os_type], i, os->nr_vcpus, os->mm_size);
         }
     }
 }
@@ -560,11 +563,17 @@ void list_vm(void)
                 fmt = "%-*.*s %6.3d %-8.s %-10s %4.1d %8d\n";
             
             rt_kprintf(fmt, maxlen, VM_NAME_SIZE, vm->name, vm->vm_idx,
-                    vm_status_str(vm->status), os_type_str(vm->os->os_type),
+                    vm_status_str[vm->status], os_type_str[vm->os->os_type],
                     vm->os->nr_vcpus, vm->mm->mem_size);
         }
     }
 }
+void print_el(void)
+{
+    rt_ubase_t currEL = rt_hw_get_current_el();
+    rt_kprintf("Now is at EL%d\n", currEL);
+}
+MSH_CMD_EXPORT(print_el, print current EL);
 
 MSH_CMD_EXPORT(list_os_img, list all os support);
 MSH_CMD_EXPORT(list_vm, list all vm detail);

@@ -23,6 +23,7 @@ const struct os_desc os_support[MAX_OS_TYPE] =
         /* ((void (*)(int))addr)(0); */
         .entry_point = 0x208000,
         .os_addr = 0x208000,
+        .os_img_size = 0x49560,
         .dtb_addr = RT_NULL,
         .ramdisk_addr = RT_NULL
     },
@@ -34,124 +35,56 @@ const struct os_desc os_support[MAX_OS_TYPE] =
         /* ((void (*)(int))addr)(0); */
         .entry_point = 0x208000,
         .os_addr = 0x208000,
+        .os_img_size = 0x49560,
         .dtb_addr = RT_NULL,
         .ramdisk_addr = RT_NULL
     }
 };
 
-static char *strlwr(const char *s){
-    char *str = (char *)&s;
-    
-    while(*str != '\0'){
-        if(*str >= 'A' && *str <= 'Z') {
-            *str += 'a'-'A';
-        }
-        str++;
-    }
-
-    return str;
-}
-
-char *vm_status_str(rt_uint16_t status)
+const char* vm_status_str[VM_STATUS_UNKNOWN + 1] =
 {
-    switch (status)
-    {
-    case VM_STATUS_OFFLINE:
-        return "offline";
-    case VM_STATUS_ONLINE:
-        return "online";
-    case VM_STATUS_SUSPEND:
-        return "suspend";
-    case VM_STATUS_NEVER_RUN:
-        return "never";
-    case VM_STATUS_UNKNOWN:
-        return "unknown";
-    }
+    "offline", "online", "suspend", "never", "unknown"
+};
 
-    return "unknown";
-}
-
-char *os_type_str(rt_uint16_t os_type)
+const char* os_type_str[OS_TYPE_OTHER + 1] =
 {
-    switch (os_type)
-    {
-    case OS_TYPE_LINUX:
-        return "Linux";
-    case OS_TYPE_RT_THREAD:
-        return "RT-Thread";
-    case OS_TYPE_RT_ZEPHYR:
-        return "Zephyr";
-    case OS_TYPE_OTHER:
-    default:
-        return "Other";
-    }
+    "Linux", "RT-Thread", "Zephyr", "Other"
+};
 
-    return "Other";
-}
-
-rt_uint16_t vm_status(const char *vm_status_str)
-{
-    rt_uint16_t vm_status_code = VM_STATUS_UNKNOWN;
-    char *lower = strlwr(vm_status_str);
-
-    if (strcmp(lower, "offline") == 0)
-        vm_status_code = VM_STATUS_OFFLINE;
-    else if (strcmp(lower, "online") == 0)
-        vm_status_code = VM_STATUS_ONLINE;
-    else if (strcmp(lower, "suspend") == 0)
-        vm_status_code = VM_STATUS_SUSPEND;
-    else if (strcmp(lower, "never") == 0)
-        vm_status_code = VM_STATUS_NEVER_RUN;
-    else
-        vm_status_code = VM_STATUS_UNKNOWN;
-    
-    return vm_status_code;
-}
-
-rt_uint16_t vm_os_type(const char *os_type_str)
-{
-    rt_uint16_t os_type_code = OS_TYPE_OTHER;
-
-    if (strcmp(os_type_str, "Linux") == 0)
-        os_type_code = OS_TYPE_LINUX;
-    else if (strcmp(os_type_str, "RT-Thread") == 0)
-        os_type_code = OS_TYPE_RT_THREAD;
-    else if (strcmp(os_type_str, "Zephyr") == 0)
-        os_type_code = OS_TYPE_RT_ZEPHYR;
-    else
-        os_type_code = OS_TYPE_OTHER;
-    
-    return os_type_code;
-}
-
-static struct vcpu *__create_vcpu(struct vm *vm, rt_uint32_t vcpu_id)
+static struct vcpu *create_vcpu(struct vm *vm, rt_uint32_t vcpu_id)
 {
     char name[VM_NAME_SIZE];
     struct vcpu *vcpu;
+    struct vcpu_arch * arch;
     struct rt_thread *thread;
 
     vcpu = (struct vcpu *)rt_malloc(sizeof(struct vcpu));
-    if (vcpu == RT_NULL)
+    arch = (struct vcpu_arch *)rt_malloc(sizeof(struct vcpu_arch));
+    if (vcpu == RT_NULL || arch == RT_NULL)
     {
-        rt_kprintf("[Error] create %dth vcpu failure.\n", vcpu_id);
+        rt_kprintf("[Error] create %dth vCPU failure.\n", vcpu_id);
         return RT_NULL;
     }
-    
+
 	rt_memset(name, 0, VM_NAME_SIZE);
 	sprintf(name, "m%d_c%d", vm->vm_idx, vcpu_id);
-	thread = rt_thread_create(name, (void *)vm->os->entry_point, RT_NULL, 
-                        2048, FINSH_THREAD_PRIORITY, THREAD_TIMESLICE);
+	thread = rt_thread_create(name, (void *)vm_entry, (void *)vcpu, 
+                        4096, FINSH_THREAD_PRIORITY + 1, THREAD_TIMESLICE);
 	if (thread == RT_NULL)
     {
         rt_free(vcpu);
 		return RT_NULL;
     }
 
+    vcpu->arch = arch;
+    vcpu->flag = VCPU_JUST_CREATE;
     thread->vcpu = vcpu;
     vcpu->thread = thread;
     vcpu->vcpu_id = vcpu_id;
     vcpu->vm = vm;
     vm->vcpus[vcpu_id] = vcpu;
+    rt_memset(arch, 0, sizeof(struct vcpu_arch));
+    hook_vcpu_state_init(vcpu);
 
     if (vcpu_id)
         vm->vcpus[vcpu_id - 1]->next = vcpu;
@@ -163,7 +96,7 @@ static struct vcpu *__create_vcpu(struct vm *vm, rt_uint32_t vcpu_id)
     return vcpu;
 }
 
-static void __free_vcpu(struct vcpu *vcpu)
+static void free_vcpu(struct vcpu *vcpu)
 {
     if (vcpu)
     {
@@ -173,37 +106,40 @@ static void __free_vcpu(struct vcpu *vcpu)
     }
 }
 
-static void __go_vcpu(struct vcpu *vcpu)
+static void go_vcpu(struct vcpu *vcpu)
 {
     if (vcpu->thread)
+    {
+        /* prepare EL1 sys regs, then run vcpu */
         rt_thread_startup(vcpu->thread);
+    }
     else
-        rt_kprintf("[Error] Run %dth vcpu failure.\n", vcpu->vcpu_id);
+        rt_kprintf("[Error] Run %dth vCPU failure.\n", vcpu->vcpu_id);
 }
 
 static rt_err_t create_vcpus(struct vm *vm)
 {
     for (rt_size_t i = 0; i < vm->nr_vcpus; i++)
     {
-        struct vcpu *vcpu = __create_vcpu(vm, i);
+        struct vcpu *vcpu = create_vcpu(vm, i);
         if (vcpu == RT_NULL)
         {
             for (rt_size_t j = 0; j < vm->nr_vcpus; j++)
             {
                 vcpu = vm->vcpus[j];
                 if (vcpu)
-                    __free_vcpu(vcpu);
+                    free_vcpu(vcpu);
                 else
                     continue;
             }
 
-            rt_kprintf("[Error] Create %dth vcpu failure for %dth vm.\n", 
+            rt_kprintf("[Error] Create %dth vCPU failure for %dth VM.\n", 
                     i, vm->vm_idx);
             return -RT_ENOMEM;
         }
     }
 
-    rt_kprintf("[Info] Create %d vcpus success for %dth VM\n", 
+    rt_kprintf("[Info] Create %d vCPUs success for %dth VM\n", 
                                             vm->nr_vcpus, vm->vm_idx);
     return RT_EOK;
 }
@@ -219,6 +155,37 @@ void vm_config_init(struct vm *vm, rt_uint16_t vm_idx)
     vm->nr_vcpus = vm->os->nr_vcpus;
 }
 
+static rt_err_t load_os_img(struct vm *vm)		
+{
+    void *src = (void *)vm->os->os_addr;
+    rt_uint64_t dst_va = vm->os->entry_point;
+    rt_ubase_t dst_pa = 0x0UL;
+    rt_ubase_t count = vm->os->os_img_size, copy_size;
+    rt_err_t ret;
+
+    do
+    {
+        ret = stage2_translate(vm->mm, dst_va, &dst_pa);
+        if (ret)
+        {
+            rt_kprintf("[Error] Load OS img failure\n");
+            return ret;
+        }
+
+        if (count >= MEM_BLOCK_SIZE)
+            copy_size = MEM_BLOCK_SIZE;
+        else
+            copy_size = count;
+
+        rt_memcpy((void *)dst_pa, (const void *)src, copy_size);
+        count -= copy_size;
+        dst_va += copy_size;
+    } while (count > 0);
+
+    rt_kprintf("[Info] Load OS img OK\n");
+    return RT_EOK;
+}
+
 rt_err_t vm_init(struct vm *vm)
 {
     rt_err_t ret = RT_EOK;
@@ -227,15 +194,12 @@ rt_err_t vm_init(struct vm *vm)
      * It needs more memory for vcpu and device.
      */
     vm->vcpus = (struct vcpu **)rt_malloc(sizeof(struct vcpu *) * vm->nr_vcpus);
-    if (vm->vcpus == RT_NULL)
+    vm->arch =  (struct vm_arch *)rt_malloc(sizeof(struct vm_arch));
+    if (vm->vcpus == RT_NULL || vm->arch == RT_NULL)
     {
-        rt_kprintf("[Error] Allocate memory for vcpus' pointer failure.\n");
+        rt_kprintf("[Error] Allocate memory for VM's pointers[vcpus&arch] failure\n");
         return -RT_ENOMEM;
     }
-
-    ret = create_vcpus(vm);
-    if (ret)
-        return ret;
 
     ret = vm_mm_struct_init(vm->mm);
     if (ret)
@@ -246,10 +210,14 @@ rt_err_t vm_init(struct vm *vm)
     if (ret)
         return ret;
 
+    ret = create_vcpus(vm);
+    if (ret)
+        return ret;
+    
     /* allocate memory for device. TBD */
-    // ret = load_os_img();
-    // if (ret)
-    //     return ret;
+    ret = load_os_img(vm);
+    if (ret)
+        return ret;
 
     /* fdt_parse gets vcpus affinity and more. */
     return RT_EOK;
@@ -260,9 +228,9 @@ void go_vm(struct vm *vm)
     /* consider VM status? TBD */
     struct vcpu *vcpu = vm->vcpus[0];   /* main core */
     if (vcpu)
-        __go_vcpu(vcpu);
+        go_vcpu(vcpu);
     else
-        rt_kprintf("[Error] Start %dth vm failure.\n", vm->vm_idx);
+        rt_kprintf("[Error] Start %dth VM failure.\n", vm->vm_idx);
 }
 
 void suspend_vm(struct vm *vm)
@@ -277,7 +245,7 @@ void suspend_vm(struct vm *vm)
         ret = rt_thread_suspend(vcpu->thread);
         if (ret)
         {
-            rt_kprintf("[Error] pause VM failure at %dth cpu.\n", i);
+            rt_kprintf("[Error] Pause VM failure at %dth vCPU.\n", i);
             vm->status = VM_STATUS_UNKNOWN;
             return;
         }
@@ -308,7 +276,7 @@ void free_vm(struct vm *vm)
 {
     /* free vcpus resource */
     for (rt_size_t i = 0; i < vm->nr_vcpus; i++)
-        __free_vcpu(vm->vcpus[i]);
+        free_vcpu(vm->vcpus[i]);
 
     /* free other resource, like memory resouece & TBD */
 }

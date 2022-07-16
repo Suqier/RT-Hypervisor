@@ -282,7 +282,7 @@ static rt_err_t s2_unmap_pud(struct mm_struct *mm, rt_ubase_t va, rt_ubase_t va_
         }
     } while (pud_ptr++, va = next, va != va_end);
 
-    flush_guest_all_tlb(mm);
+    flush_guest_all_tlb(mm->vm);
     return RT_EOK;
 }
 
@@ -308,9 +308,9 @@ rt_err_t stage2_translate(struct mm_struct *mm, rt_uint64_t va, rt_ubase_t *pa)
     if ((*pmd_ptr & MMU_TYPE_MASK) == MMU_TYPE_BLOCK)
     {
 		*pa = (*pmd_ptr & S2_VA_MASK) + pmd_offset;
-		return RT_EOK;
+    	return RT_EOK;
     }
-    
+
     pte_ptr = S2_PTE_OFFSET((pte_t *)(*pte_ptr & S2_VA_MASK), va);
     phy_addr = *pte_ptr & S2_VA_MASK;
     if (phy_addr == 0)

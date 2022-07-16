@@ -23,6 +23,7 @@
 #define	CNTV_CTL_EL0	"S3_3_C14_C3_1"
 #define	CNTV_CVAL_EL0	"S3_3_C14_C3_2"
 #define	CNTVCT_EL0		"S3_3_C14_C0_2"
+#define TPIDR_EL0		"S3_3_C13_C0_2"
 #define	TPIDRRO_EL0		"S3_3_C13_C0_3"
 
 #define	CLIDR_EL1		"S3_1_C0_C0_1"
@@ -35,6 +36,23 @@
 #define ID_AA64MMFR2_EL1    "S3_0_C0_C7_2"
 #define	DAIF			"S3_3_C4_C2_1"
 #define TPIDR_EL1		"S3_0_C13_C0_4"
+#define CPACR_EL1		"S3_0_C1_C0_2"
+#define ESR_EL1			"S3_0_C5_C2_0"
+#define AFSR0_EL1		"S3_0_C5_C1_0"
+#define AFSR1_EL1		"S3_0_C5_C1_1"
+#define FAR_EL1			"S3_0_C6_C0_0"
+#define VBAR_EL1		"S3_0_C12_C0_0"
+#define CONTEXTIDR_EL1	"S3_0_C13_C0_1"
+#define AMAIR_EL1		"S3_0_C10_C3_0"
+#define CNTKCTL_EL1		"S3_0_C14_C1_0"
+#define PAR_EL1			"S3_0_C7_C4_0"
+#define TFSR_EL1		"S3_0_C5_C6_0"
+#define TFSRE0_EL1		"S3_0_C5_C6_1"
+#define SP_EL1			"S3_4_C4_C1_0"
+#define ELR_EL1			"S3_0_C4_C0_1"
+#define ELR_EL2			"S3_4_C4_C0_1"
+#define SPSR_EL1		"S3_0_C4_C0_0"
+#define SPSR_EL2		"S3_4_C4_C0_0"
 
 #define	CNTHCTL_EL2		"S3_4_C14_C1_0"
 #define	CNTHP_CTL_EL2	"S3_4_C14_C2_1"
@@ -61,6 +79,7 @@
 #define TCR_EL1         "S3_0_C2_C0_2"
 
 #define TTBR0_EL1       "S3_0_C2_C0_0"
+#define TTBR1_EL1       "S3_0_C2_C0_1"
 
 #define DAIFSET_FIQ		(1 << 0)
 #define DAIFSET_IRQ		(1 << 1)
@@ -118,7 +137,9 @@
 #define HCR_RW      (1 << 31)
 #define HCR_SWIO    (1 << 1)
 
+#define CPACR_EL1_TTA		(1 << 28)
 #define CPACR_EL1_FPEN      ((1 << 20) | (1 << 21))
+#define	CPACR_EL1_ZEN		((1 << 16) | (1 << 17))
 
 /* 
  * TCR_ELx Registers bits. 

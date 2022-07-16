@@ -14,6 +14,7 @@
 #include <rtdef.h>
 #include <rtthread.h>
 
+#include "mm.h"
 #include "virt.h"
 
 /* 
@@ -85,6 +86,7 @@
 #define S2_VA_SHIFT             (48)
 #define S2_VA_SIZE              (1UL << S2_VA_SHIFT)
 #define S2_VA_MASK      		(0x0000fffffffff000UL)
+#define S2_VA_BLOCK_MASK      	(0x0000fffffff00000UL)
 #define S2_IPA_SHIFT            (40)
 #define S2_IPA_SIZE             (1UL << S2_IPA_SHIFT)
 #define S2_PA_SHIFT             (36)
@@ -134,6 +136,7 @@
 #define WRITE_ONCE(x, val)    *(volatile typeof(x) *)&(x) = (val);
 
 struct mm_struct;
+struct mem_desc;
 
 void *alloc_vm_pgd(void);
 rt_err_t stage2_translate(struct mm_struct *mm, rt_uint64_t va, rt_ubase_t *pa);

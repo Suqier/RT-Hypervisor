@@ -110,14 +110,14 @@ rt_err_t alloc_vm_memory(struct mm_struct *mm)
         mm->mem_used += MEM_BLOCK_SIZE;
     }
 
-    rt_kprintf("[Info] Alloc %dMB mem for %d-VM\n", MB(mm->mem_used), vm->vm_idx);
+    rt_kprintf("[Info] Alloc %dMB memory for %dth VM\n", 
+                MB(mm->mem_used), vm->vm_idx);
     
     return RT_EOK;
 }
 
 rt_err_t create_vm_mmap(struct mm_struct *mm, struct mem_desc *desc)
 {
-    struct vm *vm = mm->vm;
     rt_uint64_t mmap_size;
     rt_err_t ret;
 
@@ -131,10 +131,6 @@ rt_err_t create_vm_mmap(struct mm_struct *mm, struct mem_desc *desc)
         rt_kprintf("[Error] Memory map size = 0\n");
         return -RT_EINVAL;    
     }
-
-	rt_kprintf("[Info] Map GPA[0x%08x-0x%08x] -> HPA[0x%08x-0x%08x] for %dth VM.\n",
-			desc->vaddr_start, desc->vaddr_end, 
-            desc->paddr_start, desc->paddr_start + mmap_size, vm->vm_idx);
 
     /* map memory: build stage 2 page table and translate GPA to HPA */
     ret = stage2_map(mm, desc);

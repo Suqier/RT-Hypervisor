@@ -302,8 +302,8 @@ rt_hw_context_switch:
     LDP     X0, X1, [SP], #0x10
 #endif /*RT_USING_SMP*/
 
-    MOV     X8,X0
-    MOV     X9,X1
+    MOV     X8, X0
+    MOV     X9, X1
 
     SAVE_CONTEXT_T
 
