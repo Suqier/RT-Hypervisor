@@ -29,8 +29,6 @@ void flush_guest_all_tlb(struct vm *vm)
 
 rt_inline void hook_vcpu_adjust_pc(struct vcpu *vcpu)
 {
-    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
-
     if (vcpu->flag & VCPU_INCREMENT_PC)
     {
         vcpu->arch->vcpu_ctxt.regs.pc += 4;
@@ -207,12 +205,12 @@ static void hook_vcpu_save_regs(struct vcpu *vcpu)
 /* When vCPU trap in: EL1 -> EL2 */
 static void vcpu_load_el2_return_state(struct vcpu *vcpu)
 {
-    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
     struct cpu_context *c = &vcpu->arch->vcpu_ctxt;
 
     /* el2 return state | handle PC and PSTATE */
     SET_SYS_REG(SPSR_EL2, c->regs.pstate);
     SET_SYS_REG(ELR_EL2, c->regs.pc);
+    rt_kprintf("[Debug] c->regs.pstate = 0x%08x\n", c->regs.pstate);
     rt_kprintf("[Debug] c->regs.pc = 0x%08x\n", c->regs.pc);
 }
 
@@ -228,7 +226,6 @@ static void vcpu_save_el2_return_state(struct vcpu *vcpu)
 
 static void activate_trap(struct vcpu *vcpu)
 {
-    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
     /*
      * HCR_EL2_TVM
      * CPACR_EL1_TTA
@@ -278,7 +275,6 @@ static void load_stage2_setting(struct vcpu *vcpu)
 /* When vCPU sche in */
 void vm_entry(struct vcpu *vcpu)
 {
-    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
     /* save host context [but save nothing yet] */
 
     /* load this VM's stage2 setting */

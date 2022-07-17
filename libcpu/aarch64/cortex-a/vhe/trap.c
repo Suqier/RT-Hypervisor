@@ -17,8 +17,6 @@ static rt_uint64_t hvc_trap_call(rt_uint32_t fn, rt_uint64_t arg0,
     return arm_hvc_call(fn, arg0, arg1, arg2, 0, 0, 0, 0).x0;
 }
 
-
-
 /* 
  * for ESR_EC_UNKNOWN
  */
@@ -48,12 +46,13 @@ static struct rt_sync_desc *low_sync_table[ESR_EC_MAX];
 
 void rt_hw_handle_curr_sync(regs *regs)
 {
-    rt_kprintf("[Panic] From %s.\n", __func__);
+    rt_kprintf("[Panic] From %s, %d\n", __FUNCTION__, __LINE__);
     rt_hw_trap_error(regs);
 }
 
 void rt_hw_handle_low_sync(regs *regs)
 {
+    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
     rt_uint32_t esr_val;
     struct rt_sync_desc *desc;
 
@@ -74,6 +73,7 @@ void rt_hw_handle_low_sync(regs *regs)
 /* handler sync exception from low level. */
 void rt_hw_trap_sync(regs *regs)
 {
+    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);   
     rt_uint64_t hcr_el2_val;
     GET_SYS_REG(HCR_EL2, hcr_el2_val);
 
