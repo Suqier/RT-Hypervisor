@@ -24,7 +24,7 @@
  */
 .globl rt_hw_gtimer_enable
 rt_hw_gtimer_enable:
-    MOV X0,#1
+    MOV X0, #1
     MSR CNTP_CTL_EL0, X0
     RET
 
@@ -385,21 +385,23 @@ vector_irq:
     MOV     X0, SP
 #endif
 
-    // if rt_thread_switch_interrupt_flag set, jump to
-    // rt_hw_context_switch_interrupt_do and don't return
-    LDR     X1, =rt_thread_switch_interrupt_flag
-    LDR     X2, [X1]
-    CMP     X2, #1
-    B.NE     vector_irq_exit
+    /* 
+     * if rt_thread_switch_interrupt_flag set, jump to
+     * rt_hw_context_switch_interrupt_do and don't return
+     */
+    LDR     X1,  =rt_thread_switch_interrupt_flag
+    LDR     X2,  [X1]
+    CMP     X2,  #1
+    B.NE    vector_irq_exit
 
     MOV     X2,  #0         // clear flag
     STR     X2,  [X1]
 
-    LDR     X3, =rt_interrupt_from_thread
+    LDR     X3,  =rt_interrupt_from_thread
     LDR     X4,  [X3]
     STR     x0,  [X4]       // store sp in preempted tasks's TCB
 
-    LDR     x3, =rt_interrupt_to_thread
+    LDR     x3,  =rt_interrupt_to_thread
     LDR     X4,  [X3]
     LDR     x0,  [X4]       // get new task's stack pointer
 
@@ -421,14 +423,23 @@ vector_error:
     .align  8
     .globl  vector_low_sync
 vector_low_sync:
-    SAVE_CONTEXT
-
     /* vm exit */
+    SAVE_CONTEXT
+    STP     X0, X1, [SP, #-0x10]!
 
     BL      rt_hw_trap_sync
     
     /* vm entry */
-
+    LDP     X0, X1, [SP], #0x10
     RESTORE_CONTEXT
+
+/*
+ * void __vcpu_entry(struct rt_hw_exp_stack *regs)
+ * x0 = pc
+ */
+.globl __vcpu_entry
+__vcpu_entry:
+    RESTORE_CONTEXT
+    b       .       /* NEVER reach this line! */
 
 #endif  /* RT_HYPERVISOR */

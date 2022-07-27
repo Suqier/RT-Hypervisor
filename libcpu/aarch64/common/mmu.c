@@ -171,6 +171,7 @@ void rt_hw_mmu_tlb_invalidate(void)
         "dsb sy\n\r"
         "isb sy");
 }
+
 /*
  * When FEAT_VHE is implemented, and HCR_EL2.E2H is set to 1, when executing at 
  * EL2, some EL1 System register access instructions are redefined to access the

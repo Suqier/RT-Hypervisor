@@ -19,5 +19,8 @@ int main(int argc, char** argv)
     rt_ubase_t currEL = rt_hw_get_current_el();
     rt_kprintf("Now is at EL%d\n", currEL);
 
+    GET_SYS_REG(ID_AA64MMFR2_EL1, currEL);
+    rt_kprintf("ID_AA64MMFR2_EL1 is 0x%16.16p\n", currEL);
+
     return 0;
 }

@@ -42,9 +42,9 @@ rt_bool_t arm_sve_supported(void);
 #define HCR_FMO     (1UL << 3)
 #define HCR_VM      (1UL << 0)
 
-#define HCR_GUEST_FLAGS		(HCR_TSC | HCR_TSW | HCR_TWE | HCR_TWI | \
-							 HCR_VM  | HCR_TVM | HCR_BSU | HCR_FB  | \
-							 HCR_TAC | HCR_AMO | HCR_SWIO| HCR_TIDCP | HCR_RW)
+#define HCR_GUEST_FLAGS		(HCR_TSC | HCR_TSW | HCR_TWE | HCR_TWI | HCR_VM \
+                            |HCR_TVM | HCR_BSU | HCR_FB  | HCR_TAC | HCR_AMO \
+                            |HCR_SWIO| HCR_TIDCP | HCR_RW)
 #define HCR_VIRT_EXCP_MASK 	(HCR_VSE | HCR_VI  | HCR_VF)
 #define HCR_INT_OVERRIDE   	(HCR_FMO | HCR_IMO)
 #define HCR_HOST_VHE_FLAGS	(HCR_RW  | HCR_TGE | HCR_E2H)
@@ -98,7 +98,7 @@ rt_bool_t arm_sve_supported(void);
 #define VTCR_EL2_TG0_16KB	(2 << VTCR_EL2_TG0_SHIFT)
 
 #define VTCR_EL2_PS_SHIFT	16
-#define VTCR_EL2_PS_64GB	(1 << VTCR_EL2_PS_SHIFT)
+#define	VTCR_EL2_PS_1TB		(2 << VTCR_EL2_PS_SHIFT)
 
 #define VTCR_EL2_VS_SHIFT	19
 #define VTCR_EL2_VS_8BIT	(0 << VTCR_EL2_VS_SHIFT)

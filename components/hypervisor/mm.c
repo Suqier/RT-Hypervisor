@@ -35,11 +35,16 @@ rt_err_t vm_mm_struct_init(struct mm_struct *mm)
 {
     mm->pgd_tbl = RT_NULL;
     rt_list_init(&(mm->vm_area_used));
+
+#ifdef RT_USING_SMP
     rt_hw_spin_lock_init(&mm->lock);
+#endif
 
     mm->pgd_tbl = (pud_t *)alloc_vm_pgd();
     if (!mm->pgd_tbl)
         return -RT_ENOMEM;
+    else
+        mm->pgd_tbl = (pgd_t *)(MMU_TYPE_TABLE | (rt_uint64_t)mm->pgd_tbl);
 
     /* 
      * TBD
@@ -64,10 +69,9 @@ mem_block_t *alloc_mem_block(void)
     mem_block_t *mb = (mem_block_t *)rt_malloc(sizeof(mem_block_t));
     
     /* 
-     * return phy addr 
-     * It must align.
+     * return phy addr. It must align.
      */
-    mb->ptr = rt_malloc_align(MEM_BLOCK_SIZE, RT_MM_PAGE_SIZE);  
+    mb->ptr = rt_malloc_align(MEM_BLOCK_SIZE, MEM_BLOCK_SIZE);  
     if (mb->ptr == RT_NULL)
     {
         rt_kprintf("[Error] Allocate mem_block failure.\n");
@@ -80,7 +84,8 @@ mem_block_t *alloc_mem_block(void)
 rt_err_t alloc_vm_memory(struct mm_struct *mm)
 {
     struct vm *vm = mm->vm;
-    struct vm_area *vma = rt_list_entry(mm->vm_area_used.next, struct vm_area, node);
+    struct vm_area *vma = 
+                rt_list_entry(mm->vm_area_used.next, struct vm_area, node);
     rt_uint64_t va_start = vma->desc.vaddr_start;
     mem_block_t *mb;
 
@@ -95,10 +100,7 @@ rt_err_t alloc_vm_memory(struct mm_struct *mm)
     vma->flag |= VM_MAP_BK;
     rt_size_t count = BYTE(mm->mem_size) >> MEM_BLOCK_SHIFT;
 
-    /* 
-     * Allocate virtual memory from Host OS.
-     * Still not mmap memory yet.
-     */
+    /* Allocate virtual memory from Host OS. Still not map memory yet. */
     for (rt_size_t i = 0; i < count; i++)
     {
         mb = alloc_mem_block();     /* mem_block size: 2M */
@@ -121,8 +123,10 @@ rt_err_t create_vm_mmap(struct mm_struct *mm, struct mem_desc *desc)
     rt_uint64_t mmap_size;
     rt_err_t ret;
 
+#ifdef RT_USING_SMP
     rt_hw_spin_lock(&mm->lock);
-    
+#endif
+
     desc->vaddr_end = RT_ALIGN(desc->vaddr_end, MEM_BLOCK_SIZE);
     desc->vaddr_start = RT_ALIGN_DOWN(desc->vaddr_start, MEM_BLOCK_SIZE);
     mmap_size = desc->vaddr_end - desc->vaddr_start;
@@ -140,7 +144,9 @@ rt_err_t create_vm_mmap(struct mm_struct *mm, struct mem_desc *desc)
      * ret = iommu_iotlb_flush_all(vm);
      */
 
+#ifdef RT_USING_SMP
     rt_hw_spin_unlock(&mm->lock);
+#endif
 
     return ret;
 }

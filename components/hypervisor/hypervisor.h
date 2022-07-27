@@ -32,8 +32,10 @@ struct hypervisor
 {
     rt_uint64_t phy_mem_size;
     rt_uint64_t phy_mem_used;
-    
+
+#ifdef RT_USING_SMP
     rt_hw_spinlock_t hyp_lock;
+#endif
 
     rt_uint16_t next_vm_idx;
     rt_uint16_t curr_vm_idx;

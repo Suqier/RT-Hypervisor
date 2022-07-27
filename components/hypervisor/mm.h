@@ -106,9 +106,9 @@ struct mm_struct
 
     pgd_t *pgd_tbl;
 
-// #ifdef RT_USING_SMP
+#ifdef RT_USING_SMP
     rt_hw_spinlock_t lock;
-// #endif
+#endif
     
     rt_list_t vm_area_used;
     struct vm *vm;  /* this mm_struct belongs to. */

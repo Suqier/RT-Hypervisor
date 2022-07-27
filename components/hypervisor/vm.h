@@ -69,7 +69,10 @@ struct vm
     struct mm_struct *mm;    /* userspace tied to this vm */
     const struct os_desc *os;
 
+#ifdef RT_USING_SMP
     rt_hw_spinlock_t vm_lock;
+#endif
+
     struct vm_arch *arch;
 
     /* A array for collect vcpu. */

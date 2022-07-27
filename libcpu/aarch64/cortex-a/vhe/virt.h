@@ -11,11 +11,19 @@
 #ifndef __VIRT_H__
 #define __VIRT_H__
 
+#include "armv8.h"
 #include "lib_helpers.h"
 #include "vhe.h"
 #include "vm.h"
 
 #if defined(RT_HYPERVISOR)
+
+#ifndef RT_USING_SMP
+#define RT_CPUS_NR      1
+extern int rt_hw_cpu_id(void);
+#else
+extern rt_uint64_t rt_cpu_mpidr_early[];
+#endif /* RT_USING_SMP */
 
 #define VMID_SHIFT  (48)
 #define VA_MASK     (0x0000fffffffff000UL)
@@ -45,9 +53,8 @@ enum vcpu_sysreg
 	_CONTEXTIDR_EL1,
 	_AMAIR_EL1,
 	_CNTKCTL_EL1,
+	_CNTVOFF_EL2,
 	_PAR_EL1,
-	_TFSR_EL1,
-	_TFSRE0_EL1,
 	_SP_EL1,
 	_ELR_EL1,
 	_SPSR_EL1,
@@ -59,25 +66,9 @@ enum vcpu_sysreg
 	NR_SYS_REGS	    /* Nothing after this line! */
 };
 
-struct gp_regs
-{
-    rt_uint64_t x[31];
-    rt_uint64_t sp;
-    rt_uint64_t pc;
-    rt_uint64_t pstate;
-};
-
-struct fpsimd_regs
-{	
-	rt_uint32_t fpsr;
-	rt_uint32_t fpcr;
-	rt_uint64_t regs[32] ALIGN(16);
-};
-
 struct cpu_context
 {
-    struct gp_regs regs;
-	struct fpsimd_regs fp_regs;
+	struct rt_hw_exp_stack regs;
     rt_uint64_t sys_regs[NR_SYS_REGS];
 
 	/* interrupts & timer virtualization | TBD */
@@ -113,7 +104,7 @@ struct vm_arch
 };
 
 struct hyp_arch
-{	
+{
 	rt_uint32_t ipa_size;
 	rt_uint8_t vmid_bits;
 
@@ -125,15 +116,14 @@ struct vm;
 struct vcpu;
 
 void __flush_all_tlb(void);
-void flush_guest_all_tlb(struct vm *vm);
+void flush_vm_all_tlb(struct vm *vm);
 
 void hook_vcpu_state_init(struct vcpu *vcpu);
-void vcpu_trap_in(struct vcpu *vcpu);
-void vcpu_trap_out(struct vcpu *vcpu);
 
-void __guest_enter(struct cpu_context *vcpu_ctxt, struct cpu_context *host_ctxt);
-void vm_entry(struct vcpu *vcpu);
-void vm_exit(struct vcpu *vcpu);
+void __vcpu_entry(struct rt_hw_exp_stack *regs);
+
+void vcpu_sche_in(struct vcpu *vcpu);
+void vcpu_sche_out(struct vcpu* vcpu);
 
 void hook_vcpu_dump_regs(struct vcpu *vcpu);
 

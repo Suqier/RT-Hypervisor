@@ -16,6 +16,8 @@
 #include <armv8.h>
 #include <interrupt.h>
 
+#include "lib_helpers.h"
+
 #ifdef RT_USING_FINSH
 extern long list_thread(void);
 #endif
@@ -52,6 +54,20 @@ void rt_hw_trap_error(struct rt_hw_exp_stack *regs)
 {
     rt_kprintf("error exception:\n");
     rt_hw_show_register(regs);
+    
+    rt_ubase_t currEL = rt_hw_get_current_el();
+    rt_kprintf("Now is at EL%d\n", currEL);
+
+    rt_uint64_t val;
+    GET_SYS_REG(HCR_EL2, val);
+    rt_kprintf("HCR_EL2 = 0x%16.16p\n", val);
+    
+    GET_SYS_REG(ESR_EL2, val);
+    rt_kprintf("ESR_EL2 = 0x%16.16p\n", val);
+
+    GET_SYS_REG(FAR_EL2, val);
+    rt_kprintf("FAR_EL2 = 0x%16.16p\n", val);    
+
 #ifdef RT_USING_FINSH
     list_thread();
 #endif

@@ -39,12 +39,15 @@ system_vectors:
     /* Exception from lower EL, aarch64 */
 #if defined(RT_HYPERVISOR)
     ventry  vector_low_sync /* Synchronous */
+    ventry  vector_irq      /* IRQ/vIRQ */
+    ventry  vector_fiq      /* FIQ/vFIQ */
+    ventry  vector_low_sync /* SError/vSError */
 #else
     ventry  vector_error    /* Synchronous */
-#endif
     ventry  vector_error    /* IRQ/vIRQ */
     ventry  vector_error    /* FIQ/vFIQ */
     ventry  vector_error    /* SError/vSError */
+#endif
 
     /* Exception from lower EL, aarch32 */
     ventry  vector_error    /* Synchronous */

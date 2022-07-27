@@ -72,6 +72,8 @@
 #define	SCTLR_EL2		"S3_4_C1_C0_0"
 #define	CPTR_EL2		"S3_4_C1_C1_2"
 #define	ESR_EL2			"S3_4_C5_C2_0"
+#define	FAR_EL2			"S3_4_C6_C0_0"
+#define	HPFAR_EL2		"S3_4_C6_C0_4"
 
 #define MAIR_EL1        "S3_0_C10_C2_0"
 #define MAIR_EL2        "S3_4_C10_C2_0"
@@ -140,6 +142,7 @@
 #define CPACR_EL1_TTA		(1 << 28)
 #define CPACR_EL1_FPEN      ((1 << 20) | (1 << 21))
 #define	CPACR_EL1_ZEN		((1 << 16) | (1 << 17))
+#define CPACR_EL1_DEFAULT	(CPACR_EL1_FPEN | CPACR_EL1_ZEN)
 
 /* 
  * TCR_ELx Registers bits. 

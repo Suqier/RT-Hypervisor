@@ -22,8 +22,8 @@ const struct os_desc os_support[MAX_OS_TYPE] =
 
         /* ((void (*)(int))addr)(0); */
         .entry_point = 0x208000,
-        .os_addr = 0x210000,
-        .os_img_size = 0x49560,
+        .os_addr = 0x208000,
+        .os_img_size = 0x1DF80,
         .dtb_addr = RT_NULL,
         .ramdisk_addr = RT_NULL
     },
@@ -32,7 +32,6 @@ const struct os_desc os_support[MAX_OS_TYPE] =
         .mm_size = 64,
         .os_type = OS_TYPE_RT_ZEPHYR,
 
-        /* ((void (*)(int))addr)(0); */
         .entry_point = 0x208000,
         .os_addr = 0x210000,
         .os_img_size = 0x49560,
@@ -68,7 +67,7 @@ static struct vcpu *create_vcpu(struct vm *vm, rt_uint32_t vcpu_id)
 
 	rt_memset(name, 0, VM_NAME_SIZE);
 	sprintf(name, "m%d_c%d", vm->vm_idx, vcpu_id);
-	thread = rt_thread_create(name, (void *)vm_entry, (void *)vcpu, 
+	thread = rt_thread_create(name, (void *)vcpu_sche_in, (void *)vcpu, 
                         4096, FINSH_THREAD_PRIORITY + 1, THREAD_TIMESLICE);
 	if (thread == RT_NULL)
     {
@@ -140,7 +139,7 @@ static rt_err_t create_vcpus(struct vm *vm)
     }
 
     rt_kprintf("[Info] Create %d vCPUs success for %dth VM\n", 
-                                            vm->nr_vcpus, vm->vm_idx);
+                        vm->nr_vcpus, vm->vm_idx);
     return RT_EOK;
 }
 
@@ -149,7 +148,11 @@ void vm_config_init(struct vm *vm, rt_uint16_t vm_idx)
     vm->vm_idx = vm_idx;
     rt_kprintf("[Info] Allocate VM id is %03d\n", vm_idx);
     vm->status = VM_STATUS_NEVER_RUN;
+
+#ifdef RT_USING_SMP
     rt_hw_spin_lock_init(&vm->vm_lock);
+#endif
+    
     vm->mm->mem_size = vm->os->mm_size;
     vm->mm->mem_used = 0;
     vm->nr_vcpus = vm->os->nr_vcpus;
@@ -178,6 +181,7 @@ static rt_err_t load_os_img(struct vm *vm)
             copy_size = count;
 
         rt_memcpy((void *)dst_pa, (const void *)src, copy_size);
+        rt_kprintf("[Debug] memcpy src: 0x%08x to dst: 0x%08x\n", src, dst_pa);
         count -= copy_size;
         dst_va += copy_size;
     } while (count > 0);
@@ -238,7 +242,10 @@ void suspend_vm(struct vm *vm)
     rt_err_t ret;
     struct vcpu *vcpu;
 
+#ifdef RT_USING_SMP
     rt_hw_spin_lock(&vm->vm_lock);
+#endif
+
     for (rt_size_t i = 0; i < vm->nr_vcpus; i++)
     {
         vcpu = vm->vcpus[i];
@@ -251,7 +258,10 @@ void suspend_vm(struct vm *vm)
         }
     }
     vm->status = VM_STATUS_SUSPEND;
+
+#ifdef RT_USING_SMP
     rt_hw_spin_unlock(&vm->vm_lock);
+#endif
 }
 
 void shutdown_vm(struct vm *vm)

@@ -22,6 +22,7 @@ static rt_uint64_t hvc_trap_call(rt_uint32_t fn, rt_uint64_t arg0,
  */
 static rt_err_t ec_unknown_handler(regs *regs, rt_uint32_t esr, rt_uint32_t ec)
 {
+    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
     return RT_EOK;
 }RT_INSTALL_SYNC_DESC(ec_unknown, ec_unknown_handler, 4);
 
@@ -31,6 +32,8 @@ static rt_err_t ec_unknown_handler(regs *regs, rt_uint32_t esr, rt_uint32_t ec)
 static rt_err_t ec_wfx_handler(regs *regs, rt_uint32_t esr, rt_uint32_t ec)
 {
     /* vcpu turn to idle */
+    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
+    return RT_EOK;
 }RT_INSTALL_SYNC_DESC(ec_wfx, ec_wfx_handler, 4);
 
 /*
@@ -38,7 +41,8 @@ static rt_err_t ec_wfx_handler(regs *regs, rt_uint32_t esr, rt_uint32_t ec)
  */
 static rt_err_t ec_hvc64_handler(regs *regs, rt_uint32_t esr, rt_uint32_t ec)
 {
-    
+    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
+    return RT_EOK;
 }RT_INSTALL_SYNC_DESC(ec_hvc64, ec_hvc64_handler, 0);
 
 /* sync handler table */

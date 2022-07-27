@@ -40,7 +40,9 @@ int rt_hyp_init(void)
     rt_hyp.curr_vm_idx = MAX_VM_NUM;
     rt_kprintf("[Info] Support %d VMs max.\n", MAX_VM_NUM);
 
+#ifdef RT_USING_SMP
     rt_hw_spin_lock_init(&rt_hyp.hyp_lock);
+#endif
     
     for (rt_size_t i = 0; i < RT_CPUS_NR; i++)
         rt_hyp.arch.cpu_hyp_enabled[i] = RT_FALSE;
@@ -285,13 +287,17 @@ rt_err_t create_vm(int argc, char **argv)
 
     vm_config_init(new_vm, vm_idx);
 
+#ifdef RT_USING_SMP
     rt_hw_spin_lock(&rt_hyp.hyp_lock);
+#endif
 
     rt_hyp.vms[vm_idx] = new_vm;
     rt_hyp.curr_vm_idx = vm_idx;
     rt_hyp.total_vm++;
-    
+
+#ifdef RT_USING_SMP
     rt_hw_spin_unlock(&rt_hyp.hyp_lock);
+#endif
 
     return ret;
 }
@@ -314,9 +320,13 @@ void pick_vm(int argc, char **argv)
                 rt_kprintf("[Error] VM id %d is out of scope\n", vm_idx);
                 return;
             }
+#ifdef RT_USING_SMP
             rt_hw_spin_lock(&rt_hyp.hyp_lock);
+#endif
             rt_hyp.curr_vm_idx = vm_idx;
+#ifdef RT_USING_SMP
             rt_hw_spin_unlock(&rt_hyp.hyp_lock);
+#endif 
             break;
         case '?':
             rt_kprintf("[Error] %s: %s.\n", argv[0], options.errmsg);
@@ -324,14 +334,18 @@ void pick_vm(int argc, char **argv)
         }
     }
 
+#ifdef RT_USING_SMP
     rt_hw_spin_lock(&rt_hyp.hyp_lock);
-    
+#endif
+
     if (rt_hyp.vms[vm_idx])
         rt_hyp.curr_vm_idx = vm_idx;
     else
         rt_kprintf("[Error] VM id %d is out of scope\n", vm_idx);
 
+#ifdef RT_USING_SMP
     rt_hw_spin_unlock(&rt_hyp.hyp_lock);
+#endif
 }
 
 static rt_err_t check_vm_idx(void)
