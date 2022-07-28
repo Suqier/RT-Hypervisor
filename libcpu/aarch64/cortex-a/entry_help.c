@@ -37,8 +37,8 @@ void rt_hypervisor_el2_setup(void)
 	SET_SYS_REG(HCR_EL2, val);
 
 	val = 0UL;
-	val &= ~(CPTR_EL2_TAM_VHE);
-	val |= CPTR_EL2_FPEN_VHE;
+	val &= ~(CPTR_EL2_TAM);
+	val |= CPTR_EL2_FPEN;
 	SET_SYS_REG(CPTR_EL2, val);
 
 	__DSB();

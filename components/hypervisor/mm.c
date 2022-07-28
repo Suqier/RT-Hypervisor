@@ -40,12 +40,12 @@ rt_err_t vm_mm_struct_init(struct mm_struct *mm)
     rt_hw_spin_lock_init(&mm->lock);
 #endif
 
-    mm->pgd_tbl = (pud_t *)alloc_vm_pgd();
-    if (!mm->pgd_tbl)
+    mm->pgd_tbl = (l1_t *)alloc_vm_pgd();
+    if (mm->pgd_tbl == RT_NULL)
         return -RT_ENOMEM;
     else
-        mm->pgd_tbl = (pgd_t *)(MMU_TYPE_TABLE | (rt_uint64_t)mm->pgd_tbl);
-
+        mm->pgd_tbl = (l1_t *)(MMU_TYPE_TABLE | ((rt_uint64_t)mm->pgd_tbl & TABLE_ADDR_MASK));
+    rt_kprintf("[Info] mm->pgd_tbl&attr=0x%08x\n", mm->pgd_tbl);
     /* 
      * TBD
      * We adjust ipa_start and ipa_end by getting OS img information.
@@ -137,7 +137,7 @@ rt_err_t create_vm_mmap(struct mm_struct *mm, struct mem_desc *desc)
     }
 
     /* map memory: build stage 2 page table and translate GPA to HPA */
-    ret = stage2_map(mm, desc);
+    ret = s2_map(mm, desc);
     /*
      * TBD 
      * if (ret == RT_EOK)

@@ -168,7 +168,7 @@ static rt_err_t load_os_img(struct vm *vm)
 
     do
     {
-        ret = stage2_translate(vm->mm, dst_va, &dst_pa);
+        ret = s2_translate(vm->mm, dst_va, &dst_pa);
         if (ret)
         {
             rt_kprintf("[Error] Load OS img failure\n");

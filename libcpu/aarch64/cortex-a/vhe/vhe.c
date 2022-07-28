@@ -8,7 +8,7 @@
  * 2022-05-28     Suqier       first version
  */
 
-// #if defined(RT_HYPERVISOR) && defined(ARCH_FEAT_VHE)
+// #if defined(RT_HYPERVISOR)
 
 #include "vhe.h"
 
@@ -47,5 +47,4 @@ rt_bool_t arm_sve_supported(void)
         return RT_TRUE;
 }
 
-
-// #endif /* defined(RT_HYPERVISOR) && defined(ARCH_FEAT_VHE) */
+// #endif /* defined(RT_HYPERVISOR) */

@@ -26,30 +26,19 @@
  *                        VTCR_EL2, VTTBR_EL2
  */
 
-/* 
- * Attribute fields in stage 2 VMSAv8-64 Block and Page descriptors 
- * Upper attr 
- */
-#define S2_XN_EL0_EL1      (0b00UL << 53)
-#define S2_XN_EL0          (0b01UL << 53)
-#define S2_XN_NONE         (0b10UL << 53)
-#define S2_XN_EL1          (0b11UL << 53)
+/* P2751-D5.3.3 Attribute fields in stage 2 VMSAv8-64 Block and Page descriptors */
+/* Upper attr [63:51] */
+/* FEAT_XNX support */
+#define S2_XN_EL01  (0b00UL << 53)   
+#define S2_XN_EL0   (0b01UL << 53)
+#define S2_XN_NONE  (0b10UL << 53)
+#define S2_XN_EL1   (0b11UL << 53)
 
-#define S2_CONTIGUOUS      (1UL << 52)
-#define S2_DBM             (1UL << 51)
-
-/* Lower attr */
-#define S2_NT              (1 << 16)
-#define S2_AF              (1 << 10)
-
-#define S2_SH_NON          (0b00 << 8)
-#define S2_SH_OUTER        (0b10 << 8)
-#define S2_SH_INNER        (0b11 << 8)
-
-#define S2_AP_NON	       (0b00 << 6)
-#define S2_AP_RO	       (0b01 << 6)
-#define S2_AP_WO		   (0b10 << 6)
-#define S2_AP_RW		   (0b11 << 6)
+/* Lower attr [11: 2] */
+#define S2_AF       (1 << 10)
+#define S2_SH_IS    (0b11 << 8)
+#define S2_AP_RO	(0b01 << 6)
+#define S2_AP_RW	(0b11 << 6)
 
 #define S2_MEMATTR_DEV_nGnRnE	(0b0000 << 2)
 #define S2_MEMATTR_DEV_nGnRE	(0b0001 << 2)
@@ -59,15 +48,15 @@
 #define S2_MEMATTR_NORMAL_NC	(0b0101 << 2)
 #define S2_MEMATTR_NORMAL_WT	(0b1010 << 2)
 
-#define S2_BLOCK_NORMAL			(MMU_TYPE_BLOCK | S2_AF | S2_SH_INNER | S2_AP_RW | S2_MEMATTR_NORMAL_WB | S2_XN_EL0_EL1)
-#define S2_BLOCK_NORMAL_NC		(MMU_TYPE_BLOCK | S2_AF | S2_SH_INNER | S2_AP_RW | S2_MEMATTR_NORMAL_NC | S2_XN_EL0_EL1)
-#define S2_BLOCK_NORMAL_WT	    (MMU_TYPE_BLOCK | S2_AF | S2_SH_INNER | S2_AP_RW | S2_MEMATTR_NORMAL_WT | S2_XN_EL0_EL1)
-#define S2_BLOCK_DEVICE			(MMU_TYPE_BLOCK | S2_AF | S2_MEMATTR_DEV_nGnRnE | S2_XN_EL1)
+#define S2_BLOCK_NORMAL     (MMU_TYPE_BLOCK | S2_AF | S2_SH_IS | S2_AP_RW | S2_MEMATTR_NORMAL_WB | S2_XN_EL01)
+#define S2_BLOCK_NORMAL_NC	(MMU_TYPE_BLOCK | S2_AF | S2_SH_IS | S2_AP_RW | S2_MEMATTR_NORMAL_NC | S2_XN_EL01)
+#define S2_BLOCK_NORMAL_WT	(MMU_TYPE_BLOCK | S2_AF | S2_SH_IS | S2_AP_RW | S2_MEMATTR_NORMAL_WT | S2_XN_EL01)
+#define S2_BLOCK_DEVICE	    (MMU_TYPE_BLOCK | S2_AF | S2_MEMATTR_DEV_nGnRnE | S2_XN_EL1)
 
-#define S2_PAGE_NORMAL			(MMU_TYPE_PAGE | S2_AF | S2_SH_INNER | S2_MEMATTR_NORMAL_WB)
-#define S2_PAGE_NORMAL_NC		(MMU_TYPE_PAGE | S2_AF | S2_SH_INNER | S2_MEMATTR_NORMAL_NC)
-#define S2_PAGE_NORMAL_WT	    (MMU_TYPE_PAGE | S2_AF | S2_SH_INNER | S2_MEMATTR_NORMAL_WT)
-#define S2_PAGE_DEVICE			(MMU_TYPE_PAGE | S2_AF | S2_MEMATTR_DEV_nGnRnE | S2_XN_EL1)
+#define S2_PAGE_NORMAL      (MMU_TYPE_PAGE | S2_AF | S2_SH_IS | S2_AP_RW | S2_MEMATTR_NORMAL_WB | S2_XN_EL01)
+#define S2_PAGE_NORMAL_NC	(MMU_TYPE_PAGE | S2_AF | S2_SH_IS | S2_AP_RW | S2_MEMATTR_NORMAL_NC | S2_XN_EL01)
+#define S2_PAGE_NORMAL_WT	(MMU_TYPE_PAGE | S2_AF | S2_SH_IS | S2_AP_RW | S2_MEMATTR_NORMAL_WT | S2_XN_EL01)
+#define S2_PAGE_DEVICE	    (MMU_TYPE_PAGE | S2_AF | S2_MEMATTR_DEV_nGnRnE | S2_XN_EL1)
 
 /* 
  * IPA supports 40 bits, and translation staring at level 1.
@@ -78,57 +67,45 @@
  *   3     [20:12]      9
  *  PAGE   [11: 0]      12
  */
-#define S2_START_LEVEL          (1)
-#define S2_PAGE_TABLE_LEVELS    (3)
+#define S2_VA_MASK      	(0x0000fffffffff000UL)
 
-#define S2_VA_SHIFT             (48)
-#define S2_VA_SIZE              (1UL << S2_VA_SHIFT)
-#define S2_VA_MASK      		(0x0000fffffffff000UL)
-#define S2_IPA_SHIFT            (40)
-#define S2_IPA_SIZE             (1UL << S2_IPA_SHIFT)
-#define S2_PA_SHIFT             (36)
-#define S2_PA_SIZE              (1UL << S2_PA_SHIFT)
+#define S2_VA_SHIFT         (48)
+#define S2_VA_SIZE          (1UL << S2_VA_SHIFT)
+#define S2_IPA_SHIFT        (40)
+#define S2_IPA_SIZE         (1UL << S2_IPA_SHIFT)
+#define S2_PA_SHIFT         (40)
+#define S2_PA_SIZE          (1UL << S2_PA_SHIFT)
 
-#define S2_PGD_SHIFT			(39)
-#define S2_PGD_SIZE			    (1UL << S2_PGD_SHIFT)
-#define S2_PGD_MASK			    (~(S2_PGD_SIZE - 1))
+#define S2_L1_SHIFT			(30)
+#define S2_L1_SIZE			(1UL << S2_L1_SHIFT)
+#define S2_L1_MASK			(~(S2_L1_SIZE - 1))
+#define S2_L2_SHIFT			(21)
+#define S2_L2_SIZE			(1UL << S2_L2_SHIFT)
+#define S2_L2_MASK			(~(S2_L2_SIZE - 1))
+#define S2_L3_SHIFT			(12)
+#define S2_L3_SIZE			(1UL << S2_L3_SHIFT)
+#define S2_L3_MASK			(~(S2_L3_SIZE - 1))
 
-#define S2_PUD_SHIFT			(30)
-#define S2_PUD_SIZE			    (1UL << S2_PUD_SHIFT)
-#define S2_PUD_MASK			    (~(S2_PUD_SIZE - 1))
+#define S2_PAGETABLE_SIZE	RT_MM_PAGE_SIZE * 2  /* two pages concatenated */
+#define S2_L1_NUM	    	S2_PAGETABLE_SIZE / (sizeof(rt_uint64_t))
+#define S2_L2_NUM		    RT_MM_PAGE_SIZE   / (sizeof(rt_uint64_t))
+#define S2_L3_NUM			RT_MM_PAGE_SIZE   / (sizeof(rt_uint64_t))
 
-#define S2_PMD_SHIFT			(21)
-#define S2_PMD_SIZE			    (1UL << S2_PMD_SHIFT)
-#define S2_PMD_MASK			    (~(S2_PMD_SIZE - 1))
+#define IS_1G_ALIGN(x)      (!((rt_uint64_t)(x) & (S2_L1_SIZE - 1)))
+#define IS_2M_ALIGN(x)	    (!((rt_uint64_t)(x) & (S2_L2_SIZE - 1)))
+#define IS_4K_ALIGN(x)	    (!((rt_uint64_t)(x) & (S2_L3_SIZE - 1)))
 
-#define S2_PTE_SHIFT			(12)
-#define S2_PTE_SIZE			    (1UL << S2_PTE_SHIFT)
-#define S2_PTE_MASK			    (~(S2_PTE_SIZE - 1))
+#define S2_L1_IDX(va)      (((va) >> S2_L1_SHIFT) & (S2_L1_NUM - 1))
+#define S2_L2_IDX(va)      (((va) >> S2_L2_SHIFT) & (S2_L2_NUM - 1))
+#define S2_L3_IDX(va)      (((va) >> S2_L3_SHIFT) & (S2_L3_NUM - 1)) /* [20:12] */
 
-#define S2_PAGETABLE_SIZE		RT_MM_PAGE_SIZE * 2  /* two pages concatenated */
+#define S2_L1_OFFSET(l1_tbl, va)   ((l1_t *)(l1_tbl) + S2_L1_IDX((rt_uint64_t)va))
+#define S2_L2_OFFSET(l2_tbl, va)   ((l2_t *)(l2_tbl) + S2_L2_IDX((rt_uint64_t)va))
+#define S2_L3_OFFSET(l3_tbl, va)   ((l3_t *)(l3_tbl) + S2_L3_IDX((rt_uint64_t)va))
 
-#define S2_PGD_NUM  			RT_MM_PAGE_SIZE / (sizeof(rt_uint64_t))
-#define S2_PUD_NUM	    		S2_PAGETABLE_SIZE / (sizeof(rt_uint64_t))
-#define S2_PMD_NUM		    	RT_MM_PAGE_SIZE / (sizeof(rt_uint64_t))
-#define S2_PTE_NUM			    RT_MM_PAGE_SIZE / (sizeof(rt_uint64_t))
-
-#define IS_PUD_ALIGN(x)         (!((rt_uint64_t)(x) & (S2_PUD_SIZE - 1)))
-#define IS_BLOCK_ALIGN(x)	    (!((rt_uint64_t)(x) & (S2_PMD_SIZE - 1)))
-#define IS_PAGE_ALIGN(x)	    (!((rt_uint64_t)(x) & (S2_PTE_SIZE - 1)))
-
-#define S2_PGD_IDX(va)          (((va) >> S2_PGD_SHIFT) & (S2_PGD_NUM - 1))
-#define S2_PUD_IDX(va)          (((va) >> S2_PUD_SHIFT) & (S2_PUD_NUM - 1))
-#define S2_PMD_IDX(va)          (((va) >> S2_PMD_SHIFT) & (S2_PMD_NUM - 1))
-#define S2_PTE_IDX(va)          (((va) >> S2_PTE_SHIFT) & (S2_PTE_NUM - 1)) /* [20:12] */
-
-#define S2_PGD_OFFSET(pgd_tbl, va)   ((pgd_t *)(pgd_tbl) + S2_PGD_IDX((rt_uint64_t)va))
-#define S2_PUD_OFFSET(pud_tbl, va)   ((pud_t *)(pud_tbl) + S2_PUD_IDX((rt_uint64_t)va))
-#define S2_PMD_OFFSET(pmd_tbl, va)   ((pmd_t *)(pmd_tbl) + S2_PMD_IDX((rt_uint64_t)va))
-#define S2_PTE_OFFSET(pte_tbl, va)   ((pte_t *)(pte_tbl) + S2_PTE_IDX((rt_uint64_t)va))
-
-#define TABLE_ADDR_MASK                 (0xFFFFFFFFF000UL)  /* with the 4KB granule size*/
-#define LEVEL1_BLOCK_OUTPUT_ADDR_MASK   (0xFFFFC0000000UL)  /* [47:30] */
-#define LEVEL2_BLOCK_OUTPUT_ADDR_MASK   (0xFFFFFFF00000UL)  /* [47:21] */
+#define TABLE_ADDR_MASK    (0xFFFFFFFFF000UL)  /* [47:12] */
+#define L1_BLOCK_OA_MASK   (0xFFFFC0000000UL)  /* [47:30] */
+#define L2_BLOCK_OA_MASK   (0xFFFFFFF00000UL)  /* [47:21] */
 
 #define WRITE_ONCE(x, val)    *(volatile typeof(x) *)&(x) = (val);
 
@@ -136,9 +113,8 @@ struct mm_struct;
 struct mem_desc;
 
 void *alloc_vm_pgd(void);
-rt_err_t stage2_translate(struct mm_struct *mm, rt_uint64_t va, rt_ubase_t *pa);
-rt_err_t stage2_map(struct mm_struct *mm, struct mem_desc *desc);
-rt_err_t stage2_unmap(struct mm_struct *mm, rt_ubase_t va, rt_ubase_t va_end);
-
+rt_err_t s2_map(struct mm_struct *mm, struct mem_desc *desc);
+rt_err_t s2_unmap(struct mm_struct *mm, rt_ubase_t va, rt_ubase_t va_end);
+rt_err_t s2_translate(struct mm_struct *mm, rt_uint64_t va, rt_ubase_t *pa);
 
 #endif  /* __STAGE2_H__ */

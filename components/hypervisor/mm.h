@@ -74,10 +74,10 @@
 /* virtual device created by host for guest VM, memory R/W will trapped */
 #define VM_GUEST_VDEV		    (VM_GUEST)
 
-typedef rt_uint64_t pgd_t;
-typedef rt_uint64_t pud_t;
-typedef rt_uint64_t pmd_t;
-typedef rt_uint64_t pte_t;
+typedef rt_uint64_t l0_t;
+typedef rt_uint64_t l1_t;
+typedef rt_uint64_t l2_t;
+typedef rt_uint64_t l3_t;
 
 #define BYTE(n)   ((n) << 20)
 #define MB(n)     ((n) >> 20)
@@ -104,7 +104,7 @@ struct mm_struct
     rt_uint64_t mem_size;
     rt_uint64_t mem_used;
 
-    pgd_t *pgd_tbl;
+    l1_t *pgd_tbl;
 
 #ifdef RT_USING_SMP
     rt_hw_spinlock_t lock;

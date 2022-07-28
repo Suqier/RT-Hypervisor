@@ -52,10 +52,10 @@ rt_inline rt_uint64_t get_vtcr_el2(void)
 	vtcr_val |= VTCR_EL2_TG0_4KB;
 
 	/* rk3568 just support pysical size 1TB */
-	vtcr_val |= VTCR_EL2_PS_1TB;
+	vtcr_val |= VTCR_EL2_PS_40_BIT;
 
 	/* vmid -- 8bit */
-	vtcr_val |= VTCR_EL2_VS_8BIT;
+	vtcr_val |= VTCR_EL2_8_VMID;
 
 	return vtcr_val;
 }
@@ -65,7 +65,7 @@ void hook_vcpu_state_init(struct vcpu *vcpu)
     struct vm *vm = vcpu->vm;
     struct cpu_context *c = &vcpu->arch->vcpu_ctxt;
     
-    vcpu->arch->hcr_el2 = HCR_E2H | (HCR_GUEST_FLAGS & 0x00000000ffffffff) | HCR_INT_OVERRIDE;
+    vcpu->arch->hcr_el2 = HCR_E2H | (HCR_GUEST_FLAGS & 0x00000000FFFFFFFF);
     rt_kprintf("[Info] vcpu->arch->hcr_el2 = 0x%16.16p\n", vcpu->arch->hcr_el2);
 
     c->sys_regs[_MPIDR_EL1]   = vcpu->vcpu_id;  /* set this value to VMPIDR_EL2 */
@@ -206,7 +206,7 @@ static void activate_trap(struct vcpu *vcpu)
     val |= CPACR_EL1_TTA;
     val &= ~CPACR_EL1_ZEN;
     val |= CPACR_EL1_FPEN;  /* ! */
-    val |= CPTR_EL2_TAM_VHE;
+    val |= CPTR_EL2_TAM;
     /* With VHE (HCR.E2H == 1), accesses to CPACR_EL1 are routed to CPTR_EL2 */
     SET_SYS_REG(CPACR_EL1, val);
 
