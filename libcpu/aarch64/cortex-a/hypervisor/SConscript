@@ -8,7 +8,7 @@ cwd     = GetCurrentDir()
 src     = Glob('*.c') + Glob('*.cpp') + Glob('*.S')
 CPPPATH = [cwd]
 
-group = DefineGroup('vhe', src, depend = ['RT_HYPERVISOR'], CPPPATH = CPPPATH)
+group = DefineGroup('hypervisor', src, depend = ['RT_HYPERVISOR'], CPPPATH = CPPPATH)
 
 # build for sub-directory
 list = os.listdir(cwd)
@@ -19,6 +19,5 @@ for d in list:
     if os.path.isfile(os.path.join(path, 'SConscript')):
         objs = objs + SConscript(os.path.join(d, 'SConscript'))
 group = group + objs
-
 
 Return('group')

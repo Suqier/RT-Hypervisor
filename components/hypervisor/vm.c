@@ -12,6 +12,7 @@
 #include <string.h>
 
 #include "vm.h"
+#include "virt.h"
 
 const struct os_desc os_support[MAX_OS_TYPE] =
 {

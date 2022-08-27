@@ -13,7 +13,6 @@
 
 #include "armv8.h"
 #include "lib_helpers.h"
-#include "vhe.h"
 #include "vm.h"
 
 #if defined(RT_HYPERVISOR)
@@ -24,6 +23,12 @@ extern int rt_hw_cpu_id(void);
 #else
 extern rt_uint64_t rt_cpu_mpidr_early[];
 #endif /* RT_USING_SMP */
+
+#ifdef	RT_USING_VHE
+#include "vhe.h"
+#else
+#include "nvhe.h"
+#endif
 
 #define VMID_SHIFT  (48)
 #define VA_MASK     (0x0000fffffffff000UL)
@@ -114,6 +119,10 @@ struct hyp_arch
 
 struct vm;
 struct vcpu;
+
+rt_bool_t arm_vhe_supported(void);
+rt_int8_t arm_vmid_bits(void);
+rt_bool_t arm_sve_supported(void);
 
 void __flush_all_tlb(void);
 void flush_vm_all_tlb(struct vm *vm);

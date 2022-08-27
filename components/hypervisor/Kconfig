@@ -6,17 +6,31 @@ config RT_HYPERVISOR
     help
         Type-2 Hypervisor.
 
-config ARM64_ERRATUM_1530923
-    bool "Cortex-A55: Speculative AT instruction using out-of-context translation regime could cause subsequent request to generate an incorrect translation"
-    default y
-    select ARM64_WORKAROUND_SPECULATIVE_AT
-    help
-    This option adds a workaround for ARM Cortex-A55 erratum 1530923.
+if RT_HYPERVISOR
+    config RT_USING_VHE
+        bool "Using VHE to implement Hypervisor"
+        default n
+        help
+            Type-2 Hypervisor.
 
-    Affected Cortex-A55 cores (r0p0, r0p1, r1p0, r2p0) could end-up with
-    corrupted TLBs by speculating an AT instruction during a guest
-    context switch.
+    config RT_USING_NVHE
+        bool "Using nVHE to implement Hypervisor"
+        default n
+        help
+            Type-2 Hypervisor.     
 
-    If unsure, say Y.
+    config ARM64_ERRATUM_1530923
+        bool "Cortex-A55: Speculative AT instruction using out-of-context translation regime could cause subsequent request to generate an incorrect translation"
+        default n
+        select ARM64_WORKAROUND_SPECULATIVE_AT
+        help
+        This option adds a workaround for ARM Cortex-A55 erratum 1530923.
+
+        Affected Cortex-A55 cores (r0p0, r0p1, r1p0, r2p0) could end-up with
+        corrupted TLBs by speculating an AT instruction during a guest
+        context switch.
+
+        If unsure, say Y.
+endif
 
 endmenu

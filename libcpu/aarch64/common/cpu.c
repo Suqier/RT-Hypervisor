@@ -35,7 +35,11 @@ int rt_hw_cpu_id(void)
 {
     rt_base_t value;
 
+#ifdef RT_USING_NVHE
+    __asm__ volatile ("mrs %0, tpidr_el2":"=r"(value));
+#else
     __asm__ volatile ("mrs %0, tpidr_el1":"=r"(value));
+#endif
 
     return value;
 }

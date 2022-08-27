@@ -8,6 +8,8 @@
  * 2022-06-21     Suqier       first version
  */
 
+#include <rtdef.h>
+
 #include "mm.h"
 
 extern void *alloc_vm_pgd(void);

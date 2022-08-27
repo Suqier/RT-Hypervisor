@@ -163,6 +163,15 @@ void rt_hw_init_mmu_table(struct mem_desc *mdesc, rt_size_t desc_nr)
 
 void rt_hw_mmu_tlb_invalidate(void)
 {
+#ifdef  RT_USING_NVHE
+    __asm__ volatile (
+        "tlbi alle2\n\r"
+        "dsb sy\n\r"
+        "isb sy\n\r"
+        "ic ialluis\n\r"
+        "dsb sy\n\r"
+        "isb sy");
+#else
     __asm__ volatile (
         "tlbi vmalle1\n\r"
         "dsb sy\n\r"
@@ -170,6 +179,7 @@ void rt_hw_mmu_tlb_invalidate(void)
         "ic ialluis\n\r"
         "dsb sy\n\r"
         "isb sy");
+#endif
 }
 
 /*
@@ -186,7 +196,7 @@ void rt_hw_mmu_tlb_invalidate(void)
  */
 void rt_hw_mmu_init(void)
 {
-    /**
+    /*
      *                 Attr2    Attr1    Attr0
      * 0x00447fUL = 0b00000000 01000100 01111111
      * Attr2: Device-nGnRnE memory
@@ -197,27 +207,44 @@ void rt_hw_mmu_init(void)
      * 
      * If use RT_HYPERVISOR, write mair_el2 / tcr_el2 / 
      * sctlr_el2 / ttbr0_el2 and set MMU at EL2 actually.
-     */ 
+     */
     rt_uint64_t reg_val = 0x00447fUL;
-    SET_SYS_REG(MAIR_EL1, reg_val);     
+#ifdef RT_USING_NVHE
+    SET_SYS_REG(MAIR_EL2, reg_val);
+#else
+    SET_SYS_REG(MAIR_EL1, reg_val);
+#endif
     rt_hw_isb();
 
     reg_val = 0UL;
-    reg_val &= ~( TCR_RES0 
-                | TCR_EPD0  /* Perform translation table walks using ttbr0_el2. */
-                | TCR_A1    /* ttbr0_el2.ASID defines the ASID.  */
-                | TCR_EPD1  /* Perform translation table walks using ttbr1_el2. */
-                | TCR_TBI0  /* Top Byte used in the address calculation. */
-                | TCR_TBI1 );
-    reg_val |= (TCR_T0SZ(48)  | TCR_IRGN0_WBNWA | TCR_ORGN0_WBNWA
-              | TCR_SH0_OUTER | TCR_TG0_4KB
+#ifdef RT_USING_NVHE
+    reg_val &= ~(TCR_NVHE_RES1 | TCR_NVHE_RES0 | TCR_NVHE_HPD | TCR_NVHE_TBI);
+    reg_val |= (TCR_T0SZ(48)  | TCR_IRGN0_WBNWA | TCR_ORGN0_WBNWA 
+              | TCR_SH0_OUTER | TCR_TG0_4KB | TCR_NVHE_PS_1TB);
+    SET_SYS_REG(TCR_EL2, reg_val);
+#else
+    reg_val &= ~(TCR_RES0 | TCR_EPD0 | TCR_A1 | TCR_EPD1 | TCR_TBI0 | TCR_TBI1);
+    reg_val |= (TCR_T0SZ(48)  | TCR_IRGN0_WBNWA | TCR_ORGN0_WBNWA 
+              | TCR_SH0_OUTER | TCR_TG0_4KB 
               | TCR_T1SZ(48)  | TCR_IRGN1_WBNWA | TCR_ORGN1_WBNWA
               | TCR_SH0_OUTER | TCR_TG1_4KB     
-              | TCR_IPS_64GB  | TCR_ASID16);
-
+              | TCR_IPS_1TB  | TCR_ASID16);
     SET_SYS_REG(TCR_EL1, reg_val);
+#endif
     rt_hw_isb();
 
+#ifdef RT_USING_NVHE
+    GET_SYS_REG(SCTLR_EL2, reg_val);
+    reg_val |= 1 << 2;  /* enable dcache */
+    reg_val |= 1 << 0;  /* enable mmu */
+
+    __asm__ volatile (
+        "msr ttbr0_el2, %0\n\r"
+        "msr sctlr_el2, %1\n\r"
+        "dsb sy\n\r"
+        "isb sy\n\r"
+        ::"r"(MMUTable), "r"(reg_val) :"memory");
+#else
     GET_SYS_REG(SCTLR_EL1, reg_val);
     reg_val |= 1 << 2;  /* enable dcache */
     reg_val |= 1 << 0;  /* enable mmu */
@@ -228,7 +255,8 @@ void rt_hw_mmu_init(void)
         "dsb sy\n\r"
         "isb sy\n\r"
         ::"r"(MMUTable), "r"(reg_val) :"memory");
-
+#endif
+   
     rt_hw_mmu_tlb_invalidate();
 }
 

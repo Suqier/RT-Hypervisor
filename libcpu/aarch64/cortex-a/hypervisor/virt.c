@@ -13,6 +13,41 @@
 #include "virt.h"
 #include "stage2.h"
 
+rt_bool_t arm_vhe_supported(void)
+{
+    rt_uint64_t val;
+    GET_SYS_REG(ID_AA64MMFR1_EL1, val);
+    val = (val >> ID_AA64MMFR1_VH_SHIFT) & ID_AA64MMFR1_MASK;
+    if (val == ID_AA64MMFR1_VHE)
+        return RT_TRUE;
+    else
+        return RT_FALSE;
+}
+
+rt_int8_t arm_vmid_bits(void)
+{
+    rt_int8_t vmid_bits = 8;
+
+    rt_uint64_t val;
+    GET_SYS_REG(ID_AA64MMFR1_EL1, val);
+    val = (val >> ID_AA64MMFR1_VH_SHIFT) & ID_AA64MMFR1_MASK;
+    if (val == ID_AA64MMFR1_VMID_16BIT)
+        vmid_bits = 16;
+
+    return vmid_bits;
+}
+
+rt_bool_t arm_sve_supported(void)
+{
+    rt_uint64_t val;
+    GET_SYS_REG(ID_AA64PFR0_EL1, val);
+    val = (val >> ID_AA64PFR0_SVE_SHIFT) & ID_AA64PFR0_MASK;
+    if (val == ID_AA64PFR0_NSVE)
+        return RT_FALSE;
+    else
+        return RT_TRUE;
+}
+
 void flush_vm_all_tlb(struct vm *vm)
 {
     struct mm_struct *mm = vm->mm;
@@ -34,31 +69,9 @@ void flush_vm_all_tlb(struct vm *vm)
 rt_inline rt_uint64_t get_vtcr_el2(void)
 {
 	rt_uint64_t vtcr_val = 0UL;
-
-    /* IPA support 40bits */
-	vtcr_val |= VTCR_EL2_T0SZ(40);
-
-    /* 4kb start at level1 */
-	vtcr_val |= VTCR_EL2_SL0_4KB_LEVEL1;	
-
-    /* Normal memory, Inner WBWA */
-	vtcr_val |= VTCR_EL2_IRGN0_WBWA;
-
-    /* Normal memory, Outer WBWA */
-	vtcr_val |= VTCR_EL2_ORGN0_WBWA;
-	
-    /* Inner Shareable */
-    vtcr_val |= VTCR_EL2_SH0_INNER;
-
-	/* TG0 4K */
-	vtcr_val |= VTCR_EL2_TG0_4KB;
-
-	/* rk3568 just support pysical size 1TB */
-	vtcr_val |= VTCR_EL2_PS_40_BIT;
-
-	/* vmid -- 8bit */
-	vtcr_val |= VTCR_EL2_8_VMID;
-
+	vtcr_val |= (VTCR_EL2_T0SZ(40)   | VTCR_EL2_SL0_4KB_LEVEL1 | VTCR_EL2_IRGN0_WBWA 
+             |   VTCR_EL2_ORGN0_WBWA | VTCR_EL2_SH0_INNER      | VTCR_EL2_TG0_4KB 
+             |   VTCR_EL2_PS_40_BIT  | VTCR_EL2_8_VMID);         
 	return vtcr_val;
 }
 
@@ -68,7 +81,6 @@ void hook_vcpu_state_init(struct vcpu *vcpu)
     struct cpu_context *c = &vcpu->arch->vcpu_ctxt;
     
     vcpu->arch->hcr_el2 = HCR_E2H | (HCR_GUEST_FLAGS & 0x00000000FFFFFFFF);
-    // vcpu->arch->hcr_el2 = (HCR_GUEST_FLAGS & 0x00000000FFFFFFFF);
     rt_kprintf("[Info] vcpu->arch->hcr_el2 = 0x%16.16p\n", vcpu->arch->hcr_el2);
 
     c->sys_regs[_MPIDR_EL1]   = vcpu->vcpu_id;  /* set this value to VMPIDR_EL2 */

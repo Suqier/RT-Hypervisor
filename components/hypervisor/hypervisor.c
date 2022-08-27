@@ -21,7 +21,7 @@ static struct rt_thread hyp_cpu_init[RT_CPUS_NR];
 static rt_uint8_t hyp_stack[RT_CPUS_NR][2048];
 static int parameter[RT_CPUS_NR];
 
-// #if defined(RT_HYPERVISOR)
+#ifdef RT_HYPERVISOR
 
 extern const struct os_desc os_support[MAX_OS_TYPE];
 extern const char* vm_status_str[VM_STATUS_UNKNOWN + 1];
@@ -602,4 +602,4 @@ MSH_CMD_EXPORT(delete_vm, delete vm by index);
 #endif /* RT_USING_FINSH */
 
 
-// #endif  /* defined(RT_HYPERVISOR) */ 
+#endif /* RT_HYPERVISOR */ 

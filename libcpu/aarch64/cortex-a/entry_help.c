@@ -16,7 +16,12 @@ extern unsigned char __bss_end;
 #if defined(RT_HYPERVISOR)
 #include "armv8.h"
 #include "lib_helpers.h"
+
+#ifdef	RT_USING_VHE
 #include "vhe.h"
+#else
+#include "nvhe.h"
+#endif
 
 void rt_hypervisor_el2_setup(void)
 {

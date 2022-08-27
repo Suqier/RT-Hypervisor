@@ -11,8 +11,6 @@
 #ifndef __VM_H__
 #define __VM_H__
 
-// #if defined(RT_HYPERVISOR)
-
 #include "mm.h"
 #include "os.h"
 
@@ -123,8 +121,5 @@ void go_vm(struct vm *vm);
 void suspend_vm(struct vm *vm);
 void shutdown_vm(struct vm *vm);
 void free_vm(struct vm *vm);
-
-
-// #endif  /* defined(RT_HYPERVISOR) */ 
 
 #endif  /* __VM_H__ */ 

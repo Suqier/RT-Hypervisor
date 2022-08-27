@@ -14,6 +14,7 @@
 #include <rtdef.h>
 #include <rtthread.h>
 
+#include "lib_helpers.h"
 #include "mm.h"
 #include "virt.h"
 
@@ -25,6 +26,41 @@
  * Controlling registers: SCTLR_EL2.EE, HCR_EL2.VM
  *                        VTCR_EL2, VTTBR_EL2
  */
+
+/* 
+ * VTCR_EL2 Registers bits 
+ * The control register for stage 2 of the EL1&0 translation regime.
+ * Stage 2 translation is not only for VHE. NVHE is also need this.
+ */
+#define VTCR_EL2_RES1       (1UL << 31)
+
+#define VTCR_EL2_16_VMID    (1UL << 19)
+#define VTCR_EL2_8_VMID     (0UL << 19)
+
+#define VTCR_EL2_PS_40_BIT  (0b010 << 16)
+
+#define VTCR_EL2_TG0_4KB	(0 << 14)
+#define VTCR_EL2_TG0_64KB	(1 << 14)
+#define VTCR_EL2_TG0_16KB	(2 << 14)
+
+#define	VTCR_EL2_SH0_NON	(0 << 12)
+#define	VTCR_EL2_SH0_OUTER	(2 << 12)
+#define	VTCR_EL2_SH0_INNER	(3 << 12)
+
+#define	VTCR_EL2_ORGN0_NC		(0 << 10)
+#define	VTCR_EL2_ORGN0_WBWA		(1 << 10)
+#define	VTCR_EL2_ORGN0_WT		(2 << 10)
+#define	VTCR_EL2_ORGN0_WBNWA	(3 << 10)
+
+#define	VTCR_EL2_IRGN0_NC		(0 << 8)
+#define	VTCR_EL2_IRGN0_WBWA		(1 << 8)
+#define	VTCR_EL2_IRGN0_WT		(2 << 8)
+#define	VTCR_EL2_IRGN0_WBNWA	(3 << 8)
+
+#define VTCR_EL2_SL0_4KB_LEVEL1	(0b01 << 6)
+
+#define VTCR_EL2_T0SZ(x)	TCR_T0SZ(x)
+#define VTCR_EL2_T0SZ_MASK	(0b111111)
 
 /* P2751-D5.3.3 Attribute fields in stage 2 VMSAv8-64 Block and Page descriptors */
 /* Upper attr [63:51] */

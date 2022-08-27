@@ -192,6 +192,7 @@
 /* Hypervisor */
 
 #define RT_HYPERVISOR
+#define RT_USING_NVHE
 #define ARM64_ERRATUM_1530923
 
 /* RT-Thread online packages */

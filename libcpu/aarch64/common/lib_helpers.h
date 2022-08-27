@@ -13,8 +13,6 @@
 
 #include <rtdef.h>
 
-// #ifdef __ASSEMBLY__
-
 #define GET_SYS_REG(reg, out) __asm__ volatile ("mrs %0, " reg:"=r"(out)::"memory");
 #define SET_SYS_REG(reg, in)  __asm__ volatile ("msr " reg ", %0"::"r"(in):"memory");
 
@@ -68,6 +66,7 @@
 #define VTCR_EL2		"S3_4_C2_C1_2"
 #define VTTBR_EL2		"S3_4_C2_C1_0"
 #define VBAR_EL2		"S3_4_C12_C0_0"
+#define TCR_EL2			"S3_4_C2_C0_2"
 
 #define	SCTLR_EL1		"S3_0_C1_C0_0"
 #define	SCTLR_EL2		"S3_4_C1_C0_0"
@@ -153,13 +152,47 @@
 #define SCR_RW		(1 << 10)
 #define SCR_ST		(1 << 11)
 
-#define HCR_RW      (1 << 31)
-#define HCR_SWIO    (1 << 1)
+/* HCR_EL2 Registers bits */
+#define HCR_TLOR    (1UL << 35)
+#define HCR_E2H     (1UL << 34)
+#define HCR_RW      (1UL << 31)
+#define HCR_TRVW    (1UL << 30)
+#define HCR_HCD     (1UL << 29)
+#define HCR_TGE     (1UL << 27)
+#define HCR_TVM     (1UL << 26)
+#define	HCR_TSW		(1UL << 22)
+#define HCR_TACR	(1UL << 21)
+#define	HCR_TIDCP	(1UL << 20)
+#define HCR_TSC     (1UL << 19)
+#define HCR_TWE     (1UL << 14)
+#define HCR_TWI     (1UL << 13)
+#define	HCR_BSU		(3UL << 10)
+#define	HCR_BSU_IS	(1UL << 10)
+#define	HCR_FB		(1UL << 9)
+#define HCR_VSE     (1UL << 8)
+#define HCR_VI      (1UL << 7)
+#define HCR_VF      (1UL << 6)
+#define HCR_AMO     (1UL << 5)
+#define HCR_IMO     (1UL << 4)
+#define HCR_FMO     (1UL << 3)
+#define HCR_PTW     (1UL << 2)
+#define HCR_SWIO    (1UL << 1)
+#define HCR_VM      (1UL << 0)
 
 #define CPACR_EL1_TTA		(1 << 28)
 #define CPACR_EL1_FPEN      ((1 << 20) | (1 << 21))
 #define	CPACR_EL1_ZEN		((1 << 16) | (1 << 17))
 #define CPACR_EL1_DEFAULT	(CPACR_EL1_FPEN | CPACR_EL1_ZEN)
+
+#ifdef RT_HYPERVISOR
+/* CPTR_EL2 Registers bits */
+#define CPTR_EL2_TCPAC  	(1 << 31)
+#define CPTR_EL2_TAM    	(1 << 30)
+#define CPTR_EL2_TTA    	(1 << 28)
+#define CPTR_EL2_FPEN   	((1 << 20) | (1 << 21))
+#define CPTR_EL2_ZEN    	((1 << 16) | (1 << 17))
+#define CPTR_EL2_DEFAULT    0x000032FF
+#endif
 
 /* 
  * TCR_ELx Registers bits. 
@@ -167,14 +200,38 @@
  * It can be used in TCR_EL1 or 
  * TCR_EL2 When VHE is implemented and HCR_EL2.E2H == 1. 
  */
-#define TCR_T0SZ_OFFSET		0
-#define TCR_T1SZ_OFFSET		16
-#define TCR_T0SZ(x)		    ((64UL - (x)) << TCR_T0SZ_OFFSET)
-#define TCR_T1SZ(x)		    ((64UL - (x)) << TCR_T1SZ_OFFSET)
+#define TCR_RES0        ((1 << 6) | (1UL << 35) | (0xFUL << 60))
+#define TCR_EPD0        (1 << 7)
+#define TCR_EPD1        (1 << 23)
 
-#define TCR_RES0            ((1 << 6) | (1UL << 35) | (0xFUL << 60))
-#define TCR_EPD0            (1 << 7)
-#define TCR_EPD1            (1 << 23)
+#define TCR_IPS_SHIFT   32
+#define TCR_IPS_1TB   	(2UL << TCR_IPS_SHIFT)
+
+#define TCR_A1			(1UL << 22)
+#define TCR_ASID16		(1UL << 36)
+#define TCR_TBI0		(1UL << 37)
+#define TCR_TBI1		(1UL << 38)
+#define TCR_HA			(1UL << 39)		/* FEAT_HAFDBS */
+
+#ifdef RT_USING_NVHE
+/* TCR_EL2 When RT_USING_NVHE(HCR_EL2.E2H = 0). */
+#define TCR_NVHE_RES1		((1UL << 31) | (1UL << 23))
+#define TCR_NVHE_RES0		((1UL << 19) | (3UL << 6) | (0xFFFFFFFEUL << 32))
+
+#define	TCR_NVHE_HPD		(1UL << 24)
+#define	TCR_NVHE_HD			(1UL << 22)
+#define	TCR_NVHE_HA			(1UL << 21)
+#define	TCR_NVHE_TBI		(1UL << 20)
+
+#define TCR_NVHE_PS_SHIFT   16
+#define TCR_NVHE_PS_1TB     (2UL << TCR_NVHE_PS_SHIFT)
+#endif	/* RT_USING_NVHE */
+
+/* All TCR_ELx can be used. */
+#define TCR_T0SZ_SHIFT		0
+#define TCR_T1SZ_SHIFT		16
+#define TCR_T0SZ(x)		    ((64UL - (x)) << TCR_T0SZ_SHIFT)
+#define TCR_T1SZ(x)		    ((64UL - (x)) << TCR_T1SZ_SHIFT)
 
 #define TCR_IRGN0_SHIFT		8
 #define TCR_IRGN0_NC		(0 << TCR_IRGN0_SHIFT)
@@ -220,20 +277,10 @@
 #define TCR_TG1_64KB        (1 << TCR_TG1_SHIFT)
 #define TCR_TG1_16KB        (2 << TCR_TG1_SHIFT)
 
-#define TCR_IPS_SHIFT       32
-#define TCR_IPS_64GB        (1UL << TCR_IPS_SHIFT)
-
-#define TCR_A1			(1UL << 22)
-#define TCR_ASID16		(1UL << 36)
-#define TCR_TBI0		(1UL << 37)
-#define TCR_TBI1		(1UL << 38)
-#define TCR_HA			(1UL << 39)		/* FEAT_HAFDBS */
-
 /* ID_AA64PFR0_EL1 */
 #define ID_AA64PFR0_SVE_SHIFT	32
 #define ID_AA64PFR0_NSVE		(0b0000)
 #define ID_AA64PFR0_MASK		0xF
-
 
 /* ID_AA64MMFR0_EL1 */
 #define ID_AA64MMFR0_TGRAN4_2_SHIFT		40
@@ -250,9 +297,5 @@
 #define ID_AA64MMFR1_VMID_SHIFT	4
 #define ID_AA64MMFR1_VMID_16BIT	(0b0001)
 #define ID_AA64MMFR1_MASK		0xF
-
-
-
-// #endif  /* __ASSEMBLY__ */
 
 #endif  /* __LIB_HELPERS_H__ */

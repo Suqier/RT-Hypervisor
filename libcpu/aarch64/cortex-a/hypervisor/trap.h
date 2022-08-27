@@ -15,10 +15,16 @@
 #include <rtthread.h>
 #include <smccc.h>
 
-#include "vhe.h"
+#include <armv8.h>
 #include "lib_helpers.h"
 
-// #if defined(RT_HYPERVISOR)
+#ifdef RT_HYPERVISOR
+
+#ifdef	RT_USING_VHE
+#include "vhe.h"
+#else
+#include "nvhe.h"
+#endif
 
 /* ESR value */
 #define EC_SHIFT            (26)
@@ -83,6 +89,7 @@ struct rt_sync_desc
 void rt_hw_handle_curr_sync(struct rt_hw_exp_stack *regs);
 void rt_hw_handle_low_sync(struct rt_hw_exp_stack *regs);
 void rt_hw_trap_sync(struct rt_hw_exp_stack *regs);
-// #endif  /* defined(RT_HYPERVISOR) */
+
+#endif  /* RT_HYPERVISOR */
 
 #endif  /* __TRAP_H__ */

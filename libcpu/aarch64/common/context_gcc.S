@@ -19,6 +19,54 @@
 #define rt_hw_interrupt_enable  rt_hw_local_irq_enable
 #endif
 
+/* For Timer */
+#ifdef RT_USING_NVHE
+/*
+ * enable gtimer
+ */
+.globl rt_hw_gtimer_enable
+rt_hw_gtimer_enable:
+    MOV X0, #1
+    MSR CNTHP_CTL_EL2, X0
+    RET
+
+/*
+ * disable gtimer
+ */
+.globl rt_hw_gtimer_disable
+rt_hw_gtimer_disable:
+    MSR CNTHP_CTL_EL2, XZR
+    RET
+
+/*
+ * set gtimer CNTHP_TVAL_EL2 value
+ */
+.globl rt_hw_set_gtimer_val
+rt_hw_set_gtimer_val:
+    MSR CNTHP_TVAL_EL2, X0
+    RET
+
+/*
+ * get gtimer CNTHP_TVAL_EL2 value
+ */
+.globl rt_hw_get_gtimer_val
+rt_hw_get_gtimer_val:
+    MRS X0, CNTHP_TVAL_EL2
+    RET
+
+.globl rt_hw_get_cntpct_val
+rt_hw_get_cntpct_val:
+    MRS X0, CNTPCT_EL0
+    RET
+
+/*
+ * get gtimer frq value
+ */
+.globl rt_hw_get_gtimer_frq
+rt_hw_get_gtimer_frq:
+    MRS X0, CNTFRQ_EL0
+    RET
+#else
 /*
  * enable gtimer
  */
@@ -64,6 +112,7 @@ rt_hw_get_cntpct_val:
 rt_hw_get_gtimer_frq:
     MRS X0, CNTFRQ_EL0
     RET
+#endif
 
 /*
  * set gtimer frq value (only in EL3)

@@ -8,7 +8,6 @@
  * 2012-06-08     Suqier       first version
  */
 
-// #if defined(RT_HYPERVISOR)
 #include "trap.h"
 
 extern void rt_hw_trap_error(struct rt_hw_exp_stack *regs);
@@ -118,4 +117,3 @@ void rt_hw_trap_sync(struct rt_hw_exp_stack *regs)
     else                        /* HCR_EL2.TGE = 0 -> Guest OS */
         rt_hw_handle_low_sync(regs);
 }
-// #endif  /* defined(RT_HYPERVISOR) */

@@ -11,8 +11,6 @@
 #ifndef __MM_H__
 #define __MM_H__
 
-// #if defined(RT_HYPERVISOR) 
-
 #include <rthw.h>
 #include <mmu.h>
 
@@ -120,7 +118,5 @@ mem_block_t *alloc_mem_block(void);
 rt_err_t alloc_vm_memory(struct mm_struct *mm);
 rt_err_t map_vm_memory(struct mm_struct *mm);
 rt_err_t vm_memory_init(struct mm_struct *mm);
-
-// #endif  /* defined(RT_HYPERVISOR) */ 
 
 #endif  /* __MM_H__ */
