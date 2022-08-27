@@ -67,6 +67,7 @@
 #define HCR_EL2			"S3_4_C1_C1_0"
 #define VTCR_EL2		"S3_4_C2_C1_2"
 #define VTTBR_EL2		"S3_4_C2_C1_0"
+#define VBAR_EL2		"S3_4_C12_C0_0"
 
 #define	SCTLR_EL1		"S3_0_C1_C0_0"
 #define	SCTLR_EL2		"S3_4_C1_C0_0"
@@ -78,10 +79,26 @@
 #define MAIR_EL1        "S3_0_C10_C2_0"
 #define MAIR_EL2        "S3_4_C10_C2_0"
 
-#define TCR_EL1         "S3_0_C2_C0_2"
-
 #define TTBR0_EL1       "S3_0_C2_C0_0"
 #define TTBR1_EL1       "S3_0_C2_C0_1"
+#define TCR_EL1         "S3_0_C2_C0_2"
+
+#define SCTLR_EL12		"S3_5_C1_C0_0"
+#define CPACR_EL12		"S3_5_C1_C0_2"
+#define TTBR0_EL12      "S3_5_C2_C0_0"
+#define TTBR1_EL12      "S3_5_C2_C0_1"
+#define TCR_EL12        "S3_5_C2_C0_2"
+#define AFSR0_EL12		"S3_5_C5_C1_0"
+#define AFSR1_EL12		"S3_5_C5_C1_1"
+#define	ESR_EL12		"S3_5_C5_C2_0"
+#define	FAR_EL12		"S3_5_C6_C0_0"
+#define MAIR_EL12		"S3_5_C10_C2_0"
+#define AMAIR_EL12		"S3_5_C10_C3_0"
+#define VBAR_EL12		"S3_5_C12_C0_0"
+#define CONTEXTIDR_EL12	"S3_5_C13_C0_1"
+#define CNTKCTL_EL12	"S3_5_C14_C1_0"
+#define SPSR_EL12		"S3_5_C4_C0_0"
+#define ELR_EL12		"S3_5_C4_C0_1"
 
 #define DAIFSET_FIQ		(1 << 0)
 #define DAIFSET_IRQ		(1 << 1)

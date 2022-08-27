@@ -51,8 +51,12 @@ rt_err_t vm_mm_struct_init(struct mm_struct *mm)
      * We adjust ipa_start and ipa_end by getting OS img information.
      * Currently only supports a memory case.
      */
+    rt_uint64_t ipa_start;
     struct vm *vm = mm->vm;
-    rt_uint64_t ipa_start = vm->os->entry_point - DEFAULT_CPU_STACK_SIZE;
+    if (vm->os->os_type == OS_TYPE_RT_ZEPHYR)
+        ipa_start = 0x40000000;
+    else
+        ipa_start = vm->os->entry_point - DEFAULT_CPU_STACK_SIZE;
     rt_uint64_t ipa_end = ipa_start + BYTE(vm->os->mm_size);
     struct vm_area *va = vm_area_init(mm, ipa_start, ipa_end);
     if (!va)

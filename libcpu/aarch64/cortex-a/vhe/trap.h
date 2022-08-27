@@ -60,12 +60,11 @@
 
 typedef rt_uint64_t (*hvc_trap_handle)(rt_uint32_t fn, rt_uint64_t arg0, 
                                     rt_uint64_t arg1, rt_uint64_t arg2);
-typedef struct rt_hw_exp_stack regs;
 
 /* 
  * Sync excepition handler definition 
  */
-typedef void (*rt_sync_handler_t)(regs *regs, rt_uint32_t esr, rt_uint32_t ec);
+typedef void (*rt_sync_handler_t)(struct rt_hw_exp_stack *regs, rt_uint32_t esr);
 
 struct rt_sync_desc
 {
@@ -81,9 +80,9 @@ struct rt_sync_desc
 		.pc_offset = offset,                  \
 	};
 
-void rt_hw_handle_curr_sync(regs *regs);
-void rt_hw_handle_low_sync(regs *regs);
-void rt_hw_trap_sync(regs *regs);
+void rt_hw_handle_curr_sync(struct rt_hw_exp_stack *regs);
+void rt_hw_handle_low_sync(struct rt_hw_exp_stack *regs);
+void rt_hw_trap_sync(struct rt_hw_exp_stack *regs);
 // #endif  /* defined(RT_HYPERVISOR) */
 
 #endif  /* __TRAP_H__ */

@@ -1,20 +1,30 @@
 /*
- * Copyright (c) 2006-2022, RT-Thread Development Team
+ * File      : link.lds
+ * COPYRIGHT (C) 2017, RT-Thread Development Team
  *
- * SPDX-License-Identifier: Apache-2.0
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  * Change Logs:
- * Date           Author       Notes
- * 2017-5-30      bernard      first version
+ * 2017-5-30     bernard       first version
  */
 
-OUTPUT_FORMAT("elf64-littleaarch64", "elf64-littleaarch64", "elf64-littleaarch64")
-OUTPUT_ARCH(aarch64)
+/* _EL1_STACK_SIZE = DEFINED(_EL1_STACK_SIZE) ? _EL1_STACK_SIZE : 0x20000; */
 
 SECTIONS
 {
-    . = 0x09408000;
-    /* . = 0x208000;  */
+    . = 0x40008000;
     . = ALIGN(4096);
     .text :
     {
@@ -29,8 +39,6 @@ SECTIONS
         *(.glue_7t)
         *(.gnu.linkonce.t*)
 
-        *(COMMON)
-
         /* section information for finsh shell */
         . = ALIGN(16);
         __fsymtab_start = .;
@@ -40,13 +48,6 @@ SECTIONS
         __vsymtab_start = .;
         KEEP(*(VSymTab))
         __vsymtab_end = .;
-        . = ALIGN(16);
-
-        /* section information for hypervisor sync_handler */
-        . = ALIGN(16);
-        __sync_desc_start = .;
-        KEEP(*(SyncDesc))
-        __sync_desc_end = .;
         . = ALIGN(16);
 
         /* section information for initial. */
@@ -62,25 +63,25 @@ SECTIONS
 
     .eh_frame_hdr :
     {
-        *(.eh_frame_hdr)
-        *(.eh_frame_entry)
+         *(.eh_frame_hdr)
+         *(.eh_frame_entry)
     }
     .eh_frame : ONLY_IF_RO { KEEP (*(.eh_frame)) }
 
     . = ALIGN(16);
     .data :
     {
-        *(.data)
-        *(.data.*)
+     *(.data)
+     *(.data.*)
 
-        *(.data1)
-        *(.data1.*)
+     *(.data1)
+     *(.data1.*)
 
-        . = ALIGN(16);
-        _gp = ABSOLUTE(.);     /* Base of small data */
+     . = ALIGN(16);
+     _gp = ABSOLUTE(.);     /* Base of small data */
 
-        *(.sdata)
-        *(.sdata.*)
+     *(.sdata)
+     *(.sdata.*)
     }
 
     . = ALIGN(16);
@@ -108,8 +109,7 @@ SECTIONS
         *(.bss)
         *(.bss.*)
         *(.dynbss)
-
-        . = ALIGN(16);
+        *(COMMON)
         PROVIDE(__bss_end = .);
     }
     _end = .;

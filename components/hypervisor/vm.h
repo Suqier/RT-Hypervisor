@@ -19,7 +19,7 @@
 #define THREAD_TIMESLICE    5
 
 #define MAX_VCPU_NUM    4      /* per vm */
-#define MAX_OS_TYPE     2
+#define MAX_OS_TYPE     3
 #define VM_NAME_SIZE    16
 #define MAX_VM_NUM      64
 #define L1_CACHE_BYTES  64

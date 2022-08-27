@@ -420,6 +420,23 @@ vector_error:
 // -------------------------------------------------
 #if defined(RT_HYPERVISOR)
 
+/*
+ * void __vcpu_entry(void *regs)
+ * x0 = pc
+ */
+.globl __vcpu_entry
+__vcpu_entry:
+    RESTORE_CONTEXT
+
+    LDP     X0, X1, [X0]
+    MSR     SPSR_EL2, X1
+    MSR     ELR_EL2, X0
+    DSB     ISH
+    ISB
+    ERET
+
+    B       .       /* NEVER reach this line! */
+
     .align  8
     .globl  vector_low_sync
 vector_low_sync:
@@ -432,14 +449,5 @@ vector_low_sync:
     /* vm entry */
     LDP     X0, X1, [SP], #0x10
     RESTORE_CONTEXT
-
-/*
- * void __vcpu_entry(struct rt_hw_exp_stack *regs)
- * x0 = pc
- */
-.globl __vcpu_entry
-__vcpu_entry:
-    RESTORE_CONTEXT
-    b       .       /* NEVER reach this line! */
 
 #endif  /* RT_HYPERVISOR */

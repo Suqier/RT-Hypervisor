@@ -120,7 +120,7 @@ void flush_vm_all_tlb(struct vm *vm);
 
 void hook_vcpu_state_init(struct vcpu *vcpu);
 
-void __vcpu_entry(struct rt_hw_exp_stack *regs);
+void __vcpu_entry(void* regs);
 
 void vcpu_sche_in(struct vcpu *vcpu);
 void vcpu_sche_out(struct vcpu* vcpu);

@@ -17,24 +17,35 @@ const struct os_desc os_support[MAX_OS_TYPE] =
 {
     {
         .nr_vcpus = 1,
-        .mm_size = 64,  /* default MB */
+        .mm_size = 8,  /* default MB */
         .os_type = OS_TYPE_RT_THREAD,
-
+        /* for qemu */
         /* ((void (*)(int))addr)(0); */
-        .entry_point = 0x208000,
-        .os_addr = 0x208000,
-        .os_img_size = 0x1DF80,
+        .entry_point = 0x40008000,
+        .os_addr = 0x45000000,
+        .os_img_size = 0x6F5A0,
         .dtb_addr = RT_NULL,
         .ramdisk_addr = RT_NULL
     },
     {
-        .nr_vcpus = 2,
-        .mm_size = 64,
-        .os_type = OS_TYPE_RT_ZEPHYR,
-
+        .nr_vcpus = 1,
+        .mm_size = 8,
+        .os_type = OS_TYPE_RT_THREAD,
+        /* for a55 */
         .entry_point = 0x208000,
-        .os_addr = 0x210000,
-        .os_img_size = 0x49560,
+        .os_addr = 0x208000,
+        .os_img_size = 0x1DC80,
+        .dtb_addr = RT_NULL,
+        .ramdisk_addr = RT_NULL
+    },
+    {
+        .nr_vcpus = 1,
+        .mm_size = 8,
+        .os_type = OS_TYPE_RT_ZEPHYR,
+        /* for qemu but zephyr */
+        .entry_point = 0x40000ffc,
+        .os_addr = 0x45000000,
+        .os_img_size = 0x5B844,
         .dtb_addr = RT_NULL,
         .ramdisk_addr = RT_NULL
     }

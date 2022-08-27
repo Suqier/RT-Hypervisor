@@ -61,12 +61,14 @@ void rt_hw_trap_error(struct rt_hw_exp_stack *regs)
     rt_uint64_t val;
     GET_SYS_REG(HCR_EL2, val);
     rt_kprintf("HCR_EL2 = 0x%16.16p\n", val);
-    
     GET_SYS_REG(ESR_EL2, val);
     rt_kprintf("ESR_EL2 = 0x%16.16p\n", val);
-
     GET_SYS_REG(FAR_EL2, val);
     rt_kprintf("FAR_EL2 = 0x%16.16p\n", val);    
+    GET_SYS_REG(SPSR_EL2, val);
+    rt_kprintf("SPSR_EL2= 0x%16.16p\n", val);    
+    GET_SYS_REG(ELR_EL2, val);
+    rt_kprintf("ELR_EL2 = 0x%16.16p\n", val);
 
 #ifdef RT_USING_FINSH
     list_thread();

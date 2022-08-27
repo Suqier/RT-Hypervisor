@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2022, RT-Thread Development Team
+ * Copyright (c) 2006-2021, RT-Thread Development Team
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -15,9 +15,9 @@
 int main(int argc, char** argv)
 {
     rt_kprintf("Hi, this is RT-Thread!!\n");
-    
+
     rt_ubase_t currEL = rt_hw_get_current_el();
     rt_kprintf("Now is at EL%d\n", currEL);
-
+    
     return 0;
 }

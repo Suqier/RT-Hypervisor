@@ -61,11 +61,14 @@ rt_bool_t arm_sve_supported(void);
  * FMO:		Override CPSR.F and enable signaling with VF
  * SWIO:	Turn set/way invalidates into set/way clean+invalidate
  * PTW:		Take a stage2 fault if a stage1 walk steps in device memory
- */
+
 #define HCR_GUEST_FLAGS (HCR_TSC | HCR_TSW | HCR_TWE | HCR_TWI | HCR_VM | \
 			             HCR_BSU_IS | HCR_FB | HCR_TACR | \
-			             HCR_AMO | HCR_SWIO | HCR_TIDCP | HCR_RW | HCR_TLOR | \
+			             HCR_AMO | HCR_SWIO | HCR_TIDCP | HCR_RW | \
 			             HCR_FMO | HCR_IMO | HCR_PTW)
+ */
+#define HCR_GUEST_FLAGS (HCR_TSC | HCR_IMO | HCR_FMO | HCR_VM | HCR_RW)
+
 #define HCR_VIRT_EXCP_MASK (HCR_VSE | HCR_VI | HCR_VF)
 #define HCR_HOST_VHE_FLAGS (HCR_RW | HCR_TGE | HCR_E2H)
 
