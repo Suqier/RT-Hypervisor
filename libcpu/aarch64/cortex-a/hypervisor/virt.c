@@ -48,6 +48,16 @@ rt_bool_t arm_sve_supported(void)
         return RT_TRUE;
 }
 
+void __flush_all_tlb(void)
+{
+	__asm__ volatile (
+		"dsb ish\n\r"
+		"tlbi vmalls12e1is\n\r"
+		"dsb ish\n\r"
+		"isb\n\r"
+	);
+}
+
 void flush_vm_all_tlb(struct vm *vm)
 {
     struct mm_struct *mm = vm->mm;
@@ -106,47 +116,62 @@ void hook_vcpu_state_init(struct vcpu *vcpu)
                         | ((rt_uint64_t)vm->vm_idx     << VMID_SHIFT);
 }
 
-static void vcpu_save_user_state_regs(struct vcpu *vcpu)
+/* 
+ * When vCPU sche in 
+ */
+#ifdef RT_USING_NVHE
+static void hook_vcpu_load_regs(struct vcpu *vcpu)
 {
+    /* EL1 state restore */
     rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
     struct cpu_context *c = &vcpu->arch->vcpu_ctxt;
 
-    /* user state */
-    GET_SYS_REG(TPIDR_EL0, c->sys_regs[_TPIDR_EL0]);
-    GET_SYS_REG(TPIDRRO_EL0, c->sys_regs[_TPIDRRO_EL0]);
-}
+    /* context */
+    SET_SYS_REG(TPIDR_EL0, c->sys_regs[_TPIDR_EL0]);
+    SET_SYS_REG(TPIDRRO_EL0, c->sys_regs[_TPIDRRO_EL0]);
+    SET_SYS_REG(CONTEXTIDR_EL1, c->sys_regs[_CONTEXTIDR_EL1]);
+    
+    SET_SYS_REG(CSSELR_EL1, c->sys_regs[_CSSELR_EL1]);
+    SET_SYS_REG(CPACR_EL1, c->sys_regs[_CPACR_EL1]);
+    
+    /* MMU */
+    SET_SYS_REG(TTBR0_EL1, c->sys_regs[_TTBR0_EL1]);
+    SET_SYS_REG(TTBR1_EL1, c->sys_regs[_TTBR1_EL1]);
+    SET_SYS_REG(TCR_EL1, c->sys_regs[_TCR_EL1]);
+    SET_SYS_REG(VBAR_EL1, c->sys_regs[_VBAR_EL1]);
 
-static void vcpu_save_el1_state_regs(struct vcpu *vcpu)
-{
-    struct cpu_context *c = &vcpu->arch->vcpu_ctxt;
+    /* Fault state */
+    SET_SYS_REG(ESR_EL1, c->sys_regs[_ESR_EL1]);
+    SET_SYS_REG(FAR_EL1, c->sys_regs[_FAR_EL1]);
 
-    /* el1 state  */
-    GET_SYS_REG(CSSELR_EL1, c->sys_regs[_CSSELR_EL1]);
-    GET_SYS_REG(SCTLR_EL1, c->sys_regs[_SCTLR_EL1]);
-    GET_SYS_REG(CPACR_EL1, c->sys_regs[_CPACR_EL1]);
-    GET_SYS_REG(TTBR0_EL1, c->sys_regs[_TTBR0_EL1]);
-    GET_SYS_REG(TTBR1_EL1, c->sys_regs[_TTBR1_EL1]);
-    GET_SYS_REG(TCR_EL1, c->sys_regs[_TCR_EL1]);
-    GET_SYS_REG(ESR_EL1, c->sys_regs[_ESR_EL1]);
-    GET_SYS_REG(AFSR0_EL1, c->sys_regs[_AFSR0_EL1]);
-    GET_SYS_REG(AFSR1_EL1, c->sys_regs[_AFSR1_EL1]);
-    GET_SYS_REG(FAR_EL1, c->sys_regs[_FAR_EL1]);
-    GET_SYS_REG(MAIR_EL1, c->sys_regs[_MAIR_EL1]);
-    GET_SYS_REG(VBAR_EL1, c->sys_regs[_VBAR_EL1]);
-    GET_SYS_REG(CONTEXTIDR_EL1, c->sys_regs[_CONTEXTIDR_EL1]);
-    GET_SYS_REG(AMAIR_EL1, c->sys_regs[_AMAIR_EL1]);
-    GET_SYS_REG(CNTKCTL_EL1, c->sys_regs[_CNTKCTL_EL1]);
-    GET_SYS_REG(PAR_EL1, c->sys_regs[_PAR_EL1]);
-    GET_SYS_REG(SP_EL1, c->sys_regs[_SP_EL1]);
-    GET_SYS_REG(ELR_EL1, c->sys_regs[_ELR_EL1]);
-    GET_SYS_REG(SPSR_EL1, c->sys_regs[_SPSR_EL1]);
+    SET_SYS_REG(AFSR0_EL1, c->sys_regs[_AFSR0_EL1]);
+    SET_SYS_REG(AFSR1_EL1, c->sys_regs[_AFSR1_EL1]);
+    SET_SYS_REG(MAIR_EL1, c->sys_regs[_MAIR_EL1]);
+    SET_SYS_REG(AMAIR_EL1, c->sys_regs[_AMAIR_EL1]);
+
+    /* Timer */
+    SET_SYS_REG(CNTKCTL_EL1, c->sys_regs[_CNTKCTL_EL1]);
+
+    SET_SYS_REG(PAR_EL1, c->sys_regs[_PAR_EL1]);
+    SET_SYS_REG(SP_EL1, c->sys_regs[_SP_EL1]);
+    SET_SYS_REG(ELR_EL1, c->sys_regs[_ELR_EL1]);
+    SET_SYS_REG(SPSR_EL1, c->sys_regs[_SPSR_EL1]);
 
     /* P2524 - Traps to EL2 of EL0 and EL1 accesses to the ID registers */
-    GET_SYS_REG(VMPIDR_EL2, c->sys_regs[_MPIDR_EL1]);
-    GET_SYS_REG(VPIDR_EL2, c->sys_regs[_MIDR_EL1]);
-}
+    SET_SYS_REG(VMPIDR_EL2, c->sys_regs[_MPIDR_EL1]);
+    SET_SYS_REG(VPIDR_EL2, c->sys_regs[_MIDR_EL1]);
 
-/* When vCPU sche in */
+#ifdef ARM64_ERRATUM_1530923
+    __ISB();
+    /* P2791 - System and Special-purpose register aliasing */
+    SET_SYS_REG(SCTLR_EL1, c->sys_regs[_SCTLR_EL1]);
+#else
+    SET_SYS_REG(SCTLR_EL1, c->sys_regs[_SCTLR_EL1]);
+#endif  /* ARM64_ERRATUM_1530923 */
+
+    __ISB();
+}
+#else 
 static void hook_vcpu_load_regs(struct vcpu *vcpu)
 {
     /* EL1 state restore */
@@ -198,27 +223,18 @@ static void hook_vcpu_load_regs(struct vcpu *vcpu)
 
     __ISB();
 }
+#endif  /* RT_USING_NVHE */
 
-/* When vCPU sche out */
-static void hook_vcpu_save_regs(struct vcpu *vcpu)
-{
-    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
-
-    vcpu_save_user_state_regs(vcpu);
-    vcpu_save_el1_state_regs(vcpu);
-}
 
 static void activate_trap(struct vcpu *vcpu)
 {
     rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
     /*
-     * HCR_EL2_TVM
      * CPACR_EL1_TTA
      * ~(CPACR_EL1_ZEN_EL0EN | CPACR_EL1_ZEN_EL1EN)
      * CPTR_EL2_TAM
      * VBAR_EL1
      */
-    vcpu->arch->hcr_el2 |= HCR_TVM;
     SET_SYS_REG(HCR_EL2, vcpu->arch->hcr_el2);
     __ISB();
 
@@ -234,14 +250,6 @@ static void activate_trap(struct vcpu *vcpu)
     SET_SYS_REG(VBAR_EL1, &system_vectors);
 }
 
-static void deactivate_trap(struct vcpu *vcpu)
-{
-    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
-
-    SET_SYS_REG(HCR_EL2, HCR_HOST_VHE_FLAGS);
-    SET_SYS_REG(CPACR_EL1, CPACR_EL1_DEFAULT);
-}
-
 static void load_stage2_setting(struct vcpu *vcpu)
 {
     rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
@@ -252,33 +260,156 @@ static void load_stage2_setting(struct vcpu *vcpu)
     flush_vm_all_tlb(vcpu->vm);
 }
 
-/* When vCPU sche in */
 void vcpu_sche_in(struct vcpu *vcpu)
 {
     rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
-    hook_vcpu_load_regs(vcpu);
 
-    /* activate trap */
+    hook_vcpu_load_regs(vcpu);
     activate_trap(vcpu);
-    
-    /* load this VM's stage2 setting */
     load_stage2_setting(vcpu);  // interrupts disabled ?
 
     rt_kprintf("[Debug] __vcpu_entry\n");
     __vcpu_entry((void *)(&vcpu->arch->vcpu_ctxt.regs));
 }
 
-/* When vCPU sche out */
+/*
+ * When vCPU sche out 
+ */
+#ifdef RT_USING_NVHE
+static void hook_vcpu_save_regs(struct vcpu *vcpu)
+{
+    /* EL1 state restore */
+    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
+    struct cpu_context *c = &vcpu->arch->vcpu_ctxt;
+
+    /* context */
+    GET_SYS_REG(TPIDR_EL0, c->sys_regs[_TPIDR_EL0]);
+    GET_SYS_REG(TPIDRRO_EL0, c->sys_regs[_TPIDRRO_EL0]);
+    GET_SYS_REG(CONTEXTIDR_EL1, c->sys_regs[_CONTEXTIDR_EL1]);
+    
+    GET_SYS_REG(CSSELR_EL1, c->sys_regs[_CSSELR_EL1]);
+    GET_SYS_REG(CPACR_EL1, c->sys_regs[_CPACR_EL1]);
+    
+    /* MMU */
+    GET_SYS_REG(TTBR0_EL1, c->sys_regs[_TTBR0_EL1]);
+    GET_SYS_REG(TTBR1_EL1, c->sys_regs[_TTBR1_EL1]);
+    GET_SYS_REG(TCR_EL1, c->sys_regs[_TCR_EL1]);
+    GET_SYS_REG(VBAR_EL1, c->sys_regs[_VBAR_EL1]);
+
+    /* Fault state */
+    GET_SYS_REG(ESR_EL1, c->sys_regs[_ESR_EL1]);
+    GET_SYS_REG(FAR_EL1, c->sys_regs[_FAR_EL1]);
+
+    GET_SYS_REG(AFSR0_EL1, c->sys_regs[_AFSR0_EL1]);
+    GET_SYS_REG(AFSR1_EL1, c->sys_regs[_AFSR1_EL1]);
+    GET_SYS_REG(MAIR_EL1, c->sys_regs[_MAIR_EL1]);
+    GET_SYS_REG(AMAIR_EL1, c->sys_regs[_AMAIR_EL1]);
+
+    /* Timer */
+    GET_SYS_REG(CNTKCTL_EL1, c->sys_regs[_CNTKCTL_EL1]);
+
+    GET_SYS_REG(PAR_EL1, c->sys_regs[_PAR_EL1]);
+    GET_SYS_REG(SP_EL1, c->sys_regs[_SP_EL1]);
+    GET_SYS_REG(ELR_EL1, c->sys_regs[_ELR_EL1]);
+    GET_SYS_REG(SPSR_EL1, c->sys_regs[_SPSR_EL1]);
+
+    /* P2524 - Traps to EL2 of EL0 and EL1 accesses to the ID registers */
+    GET_SYS_REG(VMPIDR_EL2, c->sys_regs[_MPIDR_EL1]);
+    GET_SYS_REG(VPIDR_EL2, c->sys_regs[_MIDR_EL1]);
+
+#ifdef ARM64_ERRATUM_1530923
+    __ISB();
+    /* P2791 - System and Special-purpose register aliasing */
+    GET_SYS_REG(SCTLR_EL1, c->sys_regs[_SCTLR_EL1]);
+#else
+    GET_SYS_REG(SCTLR_EL1, c->sys_regs[_SCTLR_EL1]);
+#endif  /* ARM64_ERRATUM_1530923 */
+
+    __ISB();
+}
+#else
+static void hook_vcpu_save_regs(struct vcpu *vcpu)
+{
+    /* EL1 state restore */
+    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
+    struct cpu_context *c = &vcpu->arch->vcpu_ctxt;
+
+    /* context */
+    GET_SYS_REG(TPIDR_EL0, c->sys_regs[_TPIDR_EL0]);
+    GET_SYS_REG(TPIDRRO_EL0, c->sys_regs[_TPIDRRO_EL0]);
+    GET_SYS_REG(CONTEXTIDR_EL12, c->sys_regs[_CONTEXTIDR_EL1]);
+    
+    GET_SYS_REG(CSSELR_EL1, c->sys_regs[_CSSELR_EL1]);
+    GET_SYS_REG(CPACR_EL12, c->sys_regs[_CPACR_EL1]);
+    
+    /* MMU */
+    GET_SYS_REG(TTBR0_EL12, c->sys_regs[_TTBR0_EL1]);
+    GET_SYS_REG(TTBR1_EL12, c->sys_regs[_TTBR1_EL1]);
+    GET_SYS_REG(TCR_EL12, c->sys_regs[_TCR_EL1]);
+    GET_SYS_REG(VBAR_EL12, c->sys_regs[_VBAR_EL1]);
+
+    /* Fault state */
+    GET_SYS_REG(ESR_EL12, c->sys_regs[_ESR_EL1]);
+    GET_SYS_REG(FAR_EL12, c->sys_regs[_FAR_EL1]);
+
+    GET_SYS_REG(AFSR0_EL12, c->sys_regs[_AFSR0_EL1]);
+    GET_SYS_REG(AFSR1_EL12, c->sys_regs[_AFSR1_EL1]);
+    GET_SYS_REG(MAIR_EL12, c->sys_regs[_MAIR_EL1]);
+    GET_SYS_REG(AMAIR_EL12, c->sys_regs[_AMAIR_EL1]);
+
+    /* Timer */
+    GET_SYS_REG(CNTKCTL_EL12, c->sys_regs[_CNTKCTL_EL1]);
+
+    GET_SYS_REG(PAR_EL1, c->sys_regs[_PAR_EL1]);
+    GET_SYS_REG(SP_EL1, c->sys_regs[_SP_EL1]);
+    GET_SYS_REG(ELR_EL12, c->sys_regs[_ELR_EL1]);
+    GET_SYS_REG(SPSR_EL12, c->sys_regs[_SPSR_EL1]);
+
+    /* P2524 - Traps to EL2 of EL0 and EL1 accesses to the ID registers */
+    GET_SYS_REG(VMPIDR_EL2, c->sys_regs[_MPIDR_EL1]);
+    GET_SYS_REG(VPIDR_EL2, c->sys_regs[_MIDR_EL1]);
+
+#ifdef ARM64_ERRATUM_1530923
+    __ISB();
+    /* P2791 - System and Special-purpose register aliasing */
+    GET_SYS_REG(SCTLR_EL12, c->sys_regs[_SCTLR_EL1]);
+#else
+    GET_SYS_REG(SCTLR_EL12, c->sys_regs[_SCTLR_EL1]);
+#endif  /* ARM64_ERRATUM_1530923 */
+
+    __ISB();
+}
+
+#endif
+
+static void deactivate_trap(struct vcpu *vcpu)
+{
+    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
+
+    SET_SYS_REG(HCR_EL2, HCR_HOST_VHE_FLAGS);
+    SET_SYS_REG(CPACR_EL1, CPACR_EL1_DEFAULT);
+}
+
+static void save_stage2_setting(struct vcpu *vcpu)
+{
+    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
+    GET_SYS_REG(VTCR_EL2,  vcpu->vm->arch->vtcr_el2);
+    GET_SYS_REG(VTTBR_EL2, vcpu->vm->arch->vttbr_el2);
+    __ISB();
+}
+
 void vcpu_sche_out(struct vcpu* vcpu)
 {
     rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
 
-    hook_vcpu_save_regs(vcpu);
-
+    save_stage2_setting(vcpu);
     deactivate_trap(vcpu);
+    hook_vcpu_save_regs(vcpu);
 }
 
-/* Debug dump */
+/* 
+ * Dump vCPU register info
+ */
 void hook_vcpu_dump_regs(struct vcpu *vcpu)
 {
     struct cpu_context *c = &vcpu->arch->vcpu_ctxt;

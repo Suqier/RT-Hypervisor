@@ -24,7 +24,7 @@ const struct os_desc os_support[MAX_OS_TYPE] =
         /* ((void (*)(int))addr)(0); */
         .entry_point = 0x40008000,
         .os_addr = 0x45000000,
-        .os_img_size = 0x6F5A0,
+        .os_img_size = 0x6A180,
         .dtb_addr = RT_NULL,
         .ramdisk_addr = RT_NULL
     },

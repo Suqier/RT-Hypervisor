@@ -58,6 +58,15 @@ void ec_iabt_low_handler(struct rt_hw_exp_stack *regs, rt_uint32_t esr)
     
 }RT_INSTALL_SYNC_DESC(ec_iabt_low, ec_iabt_low_handler, 0);
 
+/* for ESR_EC_DABT_LOW */
+void ec_dabt_low_handler(struct rt_hw_exp_stack *regs, rt_uint32_t esr)
+{
+    rt_kprintf("[Info] %s, %d.\n", __FUNCTION__, __LINE__);
+    while (1) {}
+    
+}RT_INSTALL_SYNC_DESC(ec_dabt_low, ec_dabt_low_handler, 0);
+
+
 /* sync handler table */
 static struct rt_sync_desc *low_sync_table[] = 
 {
@@ -65,7 +74,9 @@ static struct rt_sync_desc *low_sync_table[] =
     [ESR_EC_UNKNOWN]   = &__sync_ec_unknown,
     [ESR_EC_WFX]       = &__sync_ec_wfx,
     [ESR_EC_HVC64]     = &__sync_ec_hvc64,
+    [ESR_EC_SYS64]     = &__sync_ec_sys64,
     [ESR_EC_IABT_LOW]  = &__sync_ec_iabt_low,
+    [ESR_EC_DABT_LOW]  = &__sync_ec_dabt_low,
 };
 
 void rt_hw_handle_curr_sync(struct rt_hw_exp_stack *regs)
@@ -91,7 +102,7 @@ void rt_hw_handle_low_sync(struct rt_hw_exp_stack *regs)
 
     rt_kprintf("[Info]   ESR_EL2 = 0x%08x\n", esr_val);
     GET_SYS_REG(HCR_EL2, esr_val);
-    rt_kprintf("[Info]   HCR_EL2 = 0x%16.16p\n", esr_val);
+    rt_kprintf("[Info]   HCR_EL2 = 0x%08x\n", esr_val);
     GET_SYS_REG(FAR_EL2, esr_val);
     rt_kprintf("[Info]   FAR_EL2 = 0x%08x\n", esr_val);
     GET_SYS_REG(VTTBR_EL2, esr_val);

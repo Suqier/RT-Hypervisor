@@ -38,31 +38,40 @@ enum vcpu_sysreg
 	__INVALID_SYSREG__,
 	/* common state|sp */
 
-	/* user state      */
+	/* context */
 	_TPIDR_EL0,
 	_TPIDRRO_EL0,
+	_CONTEXTIDR_EL1,
 
 	/* el1 state       */
 	_CSSELR_EL1,
 	_SCTLR_EL1,
 	_CPACR_EL1,
+
+	/* MMU */
 	_TTBR0_EL1,
 	_TTBR1_EL1,
 	_TCR_EL1,
+	_VBAR_EL1,
+
+	/* Fault state */	
 	_ESR_EL1,
+	_FAR_EL1,
+
 	_AFSR0_EL1,
 	_AFSR1_EL1,
-	_FAR_EL1,
 	_MAIR_EL1,
-	_VBAR_EL1,
-	_CONTEXTIDR_EL1,
 	_AMAIR_EL1,
+	
+	/* Timer */
 	_CNTKCTL_EL1,
 	_CNTVOFF_EL2,
+	
 	_PAR_EL1,
 	_SP_EL1,
 	_ELR_EL1,
 	_SPSR_EL1,
+
 	_MPIDR_EL1,
 	_MIDR_EL1,
 	

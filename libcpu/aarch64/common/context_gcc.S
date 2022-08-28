@@ -477,13 +477,6 @@ vector_error:
 __vcpu_entry:
     RESTORE_CONTEXT
 
-    LDP     X0, X1, [X0]
-    MSR     SPSR_EL2, X1
-    MSR     ELR_EL2, X0
-    DSB     ISH
-    ISB
-    ERET
-
     B       .       /* NEVER reach this line! */
 
     .align  8
