@@ -20,11 +20,12 @@
 
 #ifdef RT_HYPERVISOR
 
-#ifdef	RT_USING_VHE
-#include "vhe.h"
+#ifdef RT_USING_NVHE
+#include "nvhe/nvhe.h"
 #else
-#include "nvhe.h"
+#include "vhe/vhe.h"
 #endif
+
 
 /* ESR value */
 #define EC_SHIFT            (26)

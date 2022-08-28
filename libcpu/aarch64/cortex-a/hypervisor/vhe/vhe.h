@@ -14,7 +14,7 @@
 #include <armv8.h>
 #include <lib_helpers.h>
 
-#ifdef RT_HYPERVISOR
+#if defined(RT_HYPERVISOR) && defined(RT_USING_VHE)
 
 /*
  * The bits we set in HCR:
@@ -42,6 +42,6 @@
 #define HCR_VIRT_EXCP_MASK 	(HCR_VSE | HCR_VI  | HCR_VF)
 #define HCR_HOST_VHE_FLAGS 	(HCR_RW  | HCR_TGE | HCR_E2H)
 
-#endif /* RT_HYPERVISOR */
+#endif /* RT_HYPERVISOR && RT_USING_VHE */
 
 #endif /* __VHE_H__ */

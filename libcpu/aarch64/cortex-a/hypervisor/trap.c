@@ -15,7 +15,8 @@ extern void rt_hw_trap_error(struct rt_hw_exp_stack *regs);
 static rt_uint64_t hvc_trap_call(rt_uint32_t fn, rt_uint64_t arg0, 
                              rt_uint64_t arg1, rt_uint64_t arg2)
 {
-    return arm_hvc_call(fn, arg0, arg1, arg2, 0, 0, 0, 0).x0;
+    return 0;
+    // return arm_hvc_call(fn, arg0, arg1, arg2, 0, 0, 0, 0).x0;
 }
 
 /* for ESR_EC_UNKNOWN */

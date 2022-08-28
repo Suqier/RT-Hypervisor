@@ -15,7 +15,6 @@
 #include <rtthread.h>
 
 #include "lib_helpers.h"
-#include "mm.h"
 #include "virt.h"
 
 /* 

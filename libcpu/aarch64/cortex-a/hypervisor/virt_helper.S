@@ -13,7 +13,7 @@
  */
 .globl __flush_all_tlb
 __flush_all_tlb:
-    DSB     SY
+    DSB     ISH
     TLBI    VMALLS12E1IS
-    DSB     SY
+    DSB     ISH
     ISB

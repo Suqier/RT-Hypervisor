@@ -8,7 +8,7 @@ CPPPATH = [cwd]
 if GetDepend('RT_HYPERVISOR'):
     src = Glob('*.c') + Glob('*.cpp') + Glob('*.S')
 
-group = DefineGroup('Hypervisor', src, depend = ['RT_HYPERVISOR'], CPPPATH = CPPPATH)
+group = DefineGroup('hypervisor', src, depend = ['RT_HYPERVISOR'], CPPPATH = CPPPATH)
 
 # build for sub-directory
 list = os.listdir(cwd)

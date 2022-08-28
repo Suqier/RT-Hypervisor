@@ -8,8 +8,8 @@
  * 2022-05-28     Suqier       first version
  */
 
-#ifdef RT_HYPERVISOR
+#if defined(RT_HYPERVISOR) && defined(RT_USING_VHE)
 #include "vhe.h"
 
 
-#endif /* RT_HYPERVISOR */
+#endif /* RT_HYPERVISOR && RT_USING_VHE */

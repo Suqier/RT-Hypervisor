@@ -80,7 +80,7 @@ void hook_vcpu_state_init(struct vcpu *vcpu)
     struct vm *vm = vcpu->vm;
     struct cpu_context *c = &vcpu->arch->vcpu_ctxt;
     
-    vcpu->arch->hcr_el2 = HCR_E2H | (HCR_GUEST_FLAGS & 0x00000000FFFFFFFF);
+    vcpu->arch->hcr_el2 = HCR_GUEST_FLAGS;
     rt_kprintf("[Info] vcpu->arch->hcr_el2 = 0x%16.16p\n", vcpu->arch->hcr_el2);
 
     c->sys_regs[_MPIDR_EL1]   = vcpu->vcpu_id;  /* set this value to VMPIDR_EL2 */

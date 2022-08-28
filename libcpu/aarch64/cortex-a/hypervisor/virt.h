@@ -24,10 +24,10 @@ extern int rt_hw_cpu_id(void);
 extern rt_uint64_t rt_cpu_mpidr_early[];
 #endif /* RT_USING_SMP */
 
-#ifdef	RT_USING_VHE
-#include "vhe.h"
+#ifdef	RT_USING_NVHE
+#include "nvhe/nvhe.h"
 #else
-#include "nvhe.h"
+#include "vhe/vhe.h"
 #endif
 
 #define VMID_SHIFT  (48)

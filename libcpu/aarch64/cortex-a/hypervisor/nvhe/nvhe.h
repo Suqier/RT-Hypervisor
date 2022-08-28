@@ -11,6 +11,7 @@
 #ifndef __NVHE_H__
 #define __NVHE_H__
 
+#if defined(RT_HYPERVISOR) && defined(RT_USING_NVHE)
 #include <lib_helpers.h>
 
 /* nVHE: HCR_EL2.E2H = 0 && HCR_EL2.TGE = 1(RT-Thread is running at EL2). */
@@ -26,4 +27,6 @@
 #define HCR_VIRT_EXCP_MASK 	(HCR_VSE | HCR_VI  | HCR_VF)
 #define HCR_HOST_VHE_FLAGS 	(HCR_RW  | HCR_TGE)
 
-#endif /* __VHE_H__ */
+#endif /* RT_HYPERVISOR && RT_USING_NVHE */
+
+#endif /* __NVHE_H__ */

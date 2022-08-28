@@ -14,12 +14,12 @@
 #include <rthw.h>
 #include <rtthread.h>
 
-// #ifdef RT_HYPERVISOR
+#ifdef RT_HYPERVISOR
 
 #ifdef RT_USING_NVHE
-#include <nvhe.h>
+#include "nvhe/nvhe.h"
 #else
-#include <vhe.h>
+#include "vhe/vhe.h"
 #endif
 
 #include <stdio.h>
@@ -64,6 +64,6 @@ rt_err_t pause_vm(void);
 rt_err_t halt_vm(void);
 rt_err_t delete_vm(void);
 
-// #endif  /* RT_HYPERVISOR */ 
+#endif  /* RT_HYPERVISOR */ 
 
 #endif  /* __HYPERVISOR_H__ */ 

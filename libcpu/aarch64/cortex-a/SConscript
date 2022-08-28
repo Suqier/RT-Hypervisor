@@ -1,5 +1,6 @@
 # RT-Thread building script for component
 
+import os
 from building import *
 
 Import('rtconfig')

@@ -13,15 +13,15 @@
 extern unsigned char __bss_start;
 extern unsigned char __bss_end;
 
-#if defined(RT_HYPERVISOR)
+#ifdef RT_HYPERVISOR
 #include "armv8.h"
 #include "lib_helpers.h"
 
-#ifdef	RT_USING_VHE
-#include "vhe.h"
+#ifdef RT_USING_NVHE
+#include "nvhe/nvhe.h"
 #else
-#include "nvhe.h"
-#endif
+#include "vhe/vhe.h"
+#endif	/* RT_USING_NVHE */
 
 void rt_hypervisor_el2_setup(void)
 {
