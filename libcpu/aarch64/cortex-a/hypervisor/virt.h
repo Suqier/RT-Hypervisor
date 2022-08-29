@@ -80,6 +80,13 @@ enum vcpu_sysreg
 	NR_SYS_REGS	    /* Nothing after this line! */
 };
 
+/* P2791 - System and Special-purpose register aliasing */
+#ifdef RT_USING_NVHE
+#define EL1_(REG)	REG##_EL1
+#else
+#define EL1_(REG)	REG##_EL12
+#endif
+
 struct cpu_context
 {
 	struct rt_hw_exp_stack regs;
