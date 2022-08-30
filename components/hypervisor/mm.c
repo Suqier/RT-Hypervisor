@@ -42,11 +42,11 @@ rt_err_t vm_mm_struct_init(struct mm_struct *mm)
     rt_hw_spin_lock_init(&mm->lock);
 #endif
 
-    mm->pgd_tbl = (l1_t *)alloc_vm_pgd();
+    mm->pgd_tbl = (pud_t *)alloc_vm_pgd();
     if (mm->pgd_tbl == RT_NULL)
         return -RT_ENOMEM;
     else
-        mm->pgd_tbl = (l1_t *)(MMU_TYPE_TABLE | ((rt_uint64_t)mm->pgd_tbl & TABLE_ADDR_MASK));
+        mm->pgd_tbl = (pud_t *)(MMU_TYPE_TABLE | ((rt_uint64_t)mm->pgd_tbl & TABLE_ADDR_MASK));
     rt_kprintf("[Info] mm->pgd_tbl&attr=0x%08x\n", mm->pgd_tbl);
     /* 
      * TBD

@@ -102,7 +102,7 @@
  *   3     [20:12]      9
  *  PAGE   [11: 0]      12
  */
-#define S2_VA_MASK      	(0x0000fffffffff000UL)
+#define S2_VA_MASK      	(0x0000FFFFFFFFF000UL)
 
 #define S2_VA_SHIFT         (48)
 #define S2_VA_SIZE          (1UL << S2_VA_SHIFT)
@@ -111,32 +111,32 @@
 #define S2_PA_SHIFT         (40)
 #define S2_PA_SIZE          (1UL << S2_PA_SHIFT)
 
-#define S2_L1_SHIFT			(30)
-#define S2_L1_SIZE			(1UL << S2_L1_SHIFT)
-#define S2_L1_MASK			(~(S2_L1_SIZE - 1))
-#define S2_L2_SHIFT			(21)
-#define S2_L2_SIZE			(1UL << S2_L2_SHIFT)
-#define S2_L2_MASK			(~(S2_L2_SIZE - 1))
-#define S2_L3_SHIFT			(12)
-#define S2_L3_SIZE			(1UL << S2_L3_SHIFT)
-#define S2_L3_MASK			(~(S2_L3_SIZE - 1))
+#define S2_PUD_SHIFT		(30)
+#define S2_PUD_SIZE			(1UL << S2_PUD_SHIFT)
+#define S2_PUD_MASK			(~(S2_PUD_SIZE - 1))
+#define S2_PMD_SHIFT		(21)
+#define S2_PMD_SIZE			(1UL << S2_PMD_SHIFT)
+#define S2_PMD_MASK			(~(S2_PMD_SIZE - 1))
+#define S2_PTE_SHIFT		(12)
+#define S2_PTE_SIZE			(1UL << S2_PTE_SHIFT)
+#define S2_PTE_MASK			(~(S2_PTE_SIZE - 1))
 
 #define S2_PAGETABLE_SIZE	RT_MM_PAGE_SIZE * 2  /* two pages concatenated */
-#define S2_L1_NUM	    	S2_PAGETABLE_SIZE / (sizeof(rt_uint64_t))
-#define S2_L2_NUM		    RT_MM_PAGE_SIZE   / (sizeof(rt_uint64_t))
-#define S2_L3_NUM			RT_MM_PAGE_SIZE   / (sizeof(rt_uint64_t))
+#define S2_PUD_NUM	    	S2_PAGETABLE_SIZE / (sizeof(rt_uint64_t))
+#define S2_PMD_NUM		    RT_MM_PAGE_SIZE   / (sizeof(rt_uint64_t))
+#define S2_PTE_NUM			RT_MM_PAGE_SIZE   / (sizeof(rt_uint64_t))
 
-#define IS_1G_ALIGN(x)      (!((rt_uint64_t)(x) & (S2_L1_SIZE - 1)))
-#define IS_2M_ALIGN(x)	    (!((rt_uint64_t)(x) & (S2_L2_SIZE - 1)))
-#define IS_4K_ALIGN(x)	    (!((rt_uint64_t)(x) & (S2_L3_SIZE - 1)))
+#define IS_1G_ALIGN(x)      (!((rt_uint64_t)(x) & (S2_PUD_SIZE - 1)))
+#define IS_2M_ALIGN(x)	    (!((rt_uint64_t)(x) & (S2_PMD_SIZE - 1)))
+#define IS_4K_ALIGN(x)	    (!((rt_uint64_t)(x) & (S2_PTE_SIZE - 1)))
 
-#define S2_L1_IDX(va)      (((va) >> S2_L1_SHIFT) & (S2_L1_NUM - 1))
-#define S2_L2_IDX(va)      (((va) >> S2_L2_SHIFT) & (S2_L2_NUM - 1))
-#define S2_L3_IDX(va)      (((va) >> S2_L3_SHIFT) & (S2_L3_NUM - 1)) /* [20:12] */
+#define S2_PUD_IDX(va)      (((va) >> S2_PUD_SHIFT) & (S2_PUD_NUM - 1))
+#define S2_PMD_IDX(va)      (((va) >> S2_PMD_SHIFT) & (S2_PMD_NUM - 1))
+#define S2_PTE_IDX(va)      (((va) >> S2_PTE_SHIFT) & (S2_PTE_NUM - 1)) /* [20:12] */
 
-#define S2_L1_OFFSET(l1_tbl, va)   ((l1_t *)(l1_tbl) + S2_L1_IDX((rt_uint64_t)va))
-#define S2_L2_OFFSET(l2_tbl, va)   ((l2_t *)(l2_tbl) + S2_L2_IDX((rt_uint64_t)va))
-#define S2_L3_OFFSET(l3_tbl, va)   ((l3_t *)(l3_tbl) + S2_L3_IDX((rt_uint64_t)va))
+#define S2_PUD_OFFSET(pud_tbl, va)   ((pud_t *)(pud_tbl) + S2_PUD_IDX((rt_uint64_t)va))
+#define S2_PMD_OFFSET(pmd_tbl, va)   ((pmd_t *)(pmd_tbl) + S2_PMD_IDX((rt_uint64_t)va))
+#define S2_PTE_OFFSET(pte_tbl, va)   ((pte_t *)(pte_tbl) + S2_PTE_IDX((rt_uint64_t)va))
 
 #define TABLE_ADDR_MASK    (0xFFFFFFFFF000UL)  /* [47:12] */
 #define L1_BLOCK_OA_MASK   (0xFFFFC0000000UL)  /* [47:30] */
