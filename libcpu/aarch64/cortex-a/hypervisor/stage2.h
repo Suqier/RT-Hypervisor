@@ -22,8 +22,7 @@
  * 
  * Translation stage    : Non-secure EL1&0 stage 2
  * Controlled from      : Non-secure EL2 
- * Controlling registers: SCTLR_EL2.EE, HCR_EL2.VM
- *                        VTCR_EL2, VTTBR_EL2
+ * Controlling registers: SCTLR_EL2.EE, HCR_EL2.VM, VTCR_EL2, VTTBR_EL2
  */
 
 /* 
@@ -98,8 +97,8 @@
  * IA = [39:12]
  * level     bits     width
  *   1     [39:30]      10
- *   2     [29:21]      9
- *   3     [20:12]      9
+ *   2     [29:21]       9
+ *   3     [20:12]       9
  *  PAGE   [11: 0]      12
  */
 #define S2_VA_MASK      	(0x0000FFFFFFFFF000UL)
@@ -147,7 +146,9 @@
 struct mm_struct;
 struct mem_desc;
 
-void *alloc_vm_pgd(void);
+void clear_s2_mmu_table(int vm_idx);
+void clear_s2_mmu_page_group(int vm_idx);
+void *alloc_vm_pgd(int vm_idx);
 rt_err_t s2_map(struct mm_struct *mm, struct mem_desc *desc);
 rt_err_t s2_unmap(struct mm_struct *mm, rt_ubase_t va, rt_ubase_t va_end);
 rt_err_t s2_translate(struct mm_struct *mm, rt_uint64_t va, rt_ubase_t *pa);

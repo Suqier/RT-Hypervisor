@@ -8,27 +8,71 @@
  * 2022-06-19     Suqier       first version
  */
 
+#include "rtconfig.h"
 #include "stage2.h"
 
-/*  */
-
-
-
-
-void *alloc_vm_pgd(void)
+/* 
+ * VM Page Table 
+ * In menuconfig, we set the default value of MAX_VM_NUM 
+ * to decrease VM managment cost.
+ */
+struct S2_MMUTable
 {
-    /* concatened 2 page for level 1 and malloc should align 8KB */
-    void *vm_pgd = rt_malloc_align(S2_PAGETABLE_SIZE, S2_PAGETABLE_SIZE);
+    /* Concatened 2 pages for level 1 and malloc should align 8KB. */
+    unsigned long table_entry[1024];
+} __attribute__((aligned(8192)));
+static volatile struct S2_MMUTable S2_MMUTable_Group[MAX_VM_NUM];
+
+/* 
+ * VM MMU Page 
+ * Each virtual machine uses MMU_TBL_PAGE_NR_MAX S2_MMUPage,
+ * for a total of MAX_VM_NUM virtual machines.
+ */
+struct S2_MMUPage
+{
+    unsigned long page_entry[512];
+} __attribute__((aligned(4096)));
+static volatile struct S2_MMUPage S2_MMUPage_Group[MAX_VM_NUM][MMU_TBL_PAGE_NR_MAX];
+static volatile unsigned long page_i[MAX_VM_NUM] = {0};
+
+/* 
+ * Using these clear function when delete VM 
+ */
+void clear_s2_mmu_table(int vm_idx)
+{
+    RT_ASSERT(vm_idx >= 0 && vm_idx < MAX_VM_NUM);
+    rt_memset((void *)&S2_MMUTable_Group[vm_idx], 0, sizeof(struct S2_MMUTable));
+}
+
+void clear_s2_mmu_page_group(int vm_idx)
+{
+    RT_ASSERT(vm_idx >= 0 && vm_idx < MAX_VM_NUM);
+    page_i[vm_idx] = 0;
+    rt_memset((void *)S2_MMUPage_Group[vm_idx], 0, 
+                sizeof(struct S2_MMUPage) * MMU_TBL_PAGE_NR_MAX);
+}
+
+/* 
+ * If it can use this vm_idx, then means that this vm_idx is new. 
+ */
+void *alloc_vm_pgd(int vm_idx)
+{
+    RT_ASSERT(vm_idx >= 0 && vm_idx < MAX_VM_NUM);
+    return (void *)&S2_MMUTable_Group[vm_idx];
+}
+
+static unsigned long _kernel_free_s2_page(int vm_idx)
+{
+    RT_ASSERT(vm_idx >= 0 && vm_idx < MAX_VM_NUM);
     
-    if (vm_pgd == RT_NULL)
-        rt_kprintf("[Error] Allocate VM PGD table failure.\n");
-    else
+    if (page_i[vm_idx] >= MMU_TBL_PAGE_NR_MAX)
     {
-        rt_memset(vm_pgd, 0, S2_PAGETABLE_SIZE);
-        rt_kprintf("[Info] PGD: 0x%08x-0x%08x\n", vm_pgd, vm_pgd + S2_PAGETABLE_SIZE);
+        return RT_NULL;
     }
-    
-    return vm_pgd;
+
+    ++page_i[vm_idx];
+
+    return (unsigned long)&S2_MMUPage_Group[vm_idx][page_i[vm_idx] - 1].page_entry;
 }
 
 rt_inline void s2_clear_pgd(pgd_t *pgd_ptr) { WRITE_ONCE(*pgd_ptr, 0); }
@@ -42,8 +86,7 @@ rt_inline void s2_set_pmd(pmd_t *pmd_ptr, pmd_t v) { WRITE_ONCE(*pmd_ptr, v); }
 rt_inline void s2_set_pte(pte_t *pte_ptr, pte_t v) { WRITE_ONCE(*pte_ptr, v); }
 
 /* 
- * s2_map_pmd_block
- * check weather mmap type is memory block
+ * Map
  */
 static rt_bool_t s2_map_pmd_block(pmd_t *pmd_ptr, struct mem_desc *desc)
 {
@@ -96,7 +139,7 @@ static void s2_map_pte(pte_t *pte_tbl, struct mem_desc *desc)
     } while (desc->vaddr_start != desc->vaddr_end);
 }
 
-static rt_err_t s2_map_pmd(pmd_t *pmd_tbl, struct mem_desc *desc)
+static rt_err_t s2_map_pmd(pmd_t *pmd_tbl, struct mem_desc *desc, int vm_idx)
 {
     pmd_t *pmd_ptr;
     pte_t *pte_tbl;
@@ -128,7 +171,7 @@ static rt_err_t s2_map_pmd(pmd_t *pmd_tbl, struct mem_desc *desc)
                  * populate first pte
                  * page table type must align to RT_MM_PAGE_SIZE[4096]
                  */
-                pte_tbl = (pte_t *)rt_malloc_align(RT_MM_PAGE_SIZE, RT_MM_PAGE_SIZE);
+                pte_tbl = (pte_t *)_kernel_free_s2_page(vm_idx);
                 if (pte_tbl == RT_NULL)
                     return -RT_ENOMEM;
 
@@ -148,7 +191,7 @@ static rt_err_t s2_map_pmd(pmd_t *pmd_tbl, struct mem_desc *desc)
     return RT_EOK;
 }
 
-static rt_err_t s2_map_pud(pud_t *pud_tbl, struct mem_desc *desc)
+static rt_err_t s2_map_pud(pud_t *pud_tbl, struct mem_desc *desc, int vm_idx)
 {
     pud_t *pud_ptr;
     pmd_t *pmd_tbl;
@@ -180,7 +223,7 @@ static rt_err_t s2_map_pud(pud_t *pud_tbl, struct mem_desc *desc)
                  * populate first pmd
                  * page table type must align to RT_MM_PAGE_SIZE[4096]
                  */
-                pmd_tbl = (pmd_t *)rt_malloc_align(RT_MM_PAGE_SIZE, RT_MM_PAGE_SIZE);
+                pmd_tbl = (pmd_t *)_kernel_free_s2_page(vm_idx);
                 if (pmd_tbl == RT_NULL)
                     return -RT_ENOMEM;
 
@@ -191,7 +234,7 @@ static rt_err_t s2_map_pud(pud_t *pud_tbl, struct mem_desc *desc)
             }
         
             pmd_t pmd_val = (pmd_t)pmd_tbl & TABLE_ADDR_MASK;   /* [47:12] */
-            s2_map_pmd((pmd_t *)pmd_val, desc);
+            s2_map_pmd((pmd_t *)pmd_val, desc, vm_idx);
         }
     } while (pud_ptr++, 
              desc->paddr_start += size, 
@@ -210,10 +253,14 @@ rt_err_t s2_map(struct mm_struct *mm, struct mem_desc *desc)
     RT_ASSERT((desc->vaddr_start < S2_IPA_SIZE) && (desc->vaddr_end < S2_IPA_SIZE));
     RT_ASSERT(IS_2M_ALIGN(desc->vaddr_start) && IS_2M_ALIGN(desc->vaddr_end));
 
+    int vm_idx = mm->vm->vm_idx;
     pud_t pud_val = (pud_t)mm->pgd_tbl & TABLE_ADDR_MASK;   /* [47:12] */
-    return s2_map_pud((pud_t *)pud_val, desc);
+    return s2_map_pud((pud_t *)pud_val, desc, vm_idx);
 }
 
+/* 
+ * Unmap
+ */
 static void s2_unmap_pte(pte_t *pte_tbl, rt_ubase_t va, rt_ubase_t va_end)
 {
     pte_t *pte_ptr = S2_PTE_OFFSET(pte_tbl, va);
@@ -226,7 +273,7 @@ static void s2_unmap_pte(pte_t *pte_tbl, rt_ubase_t va, rt_ubase_t va_end)
         if (*pte_tmp)
         {
             s2_clear_pte(pte_tmp);
-            rt_free(pte_tmp);
+            rt_free(pte_tmp);   /* This memory gets from heap. */
         }
     } while (va += RT_MM_PAGE_SIZE, va != va_end);
 }
@@ -257,8 +304,8 @@ static void s2_unmap_pmd(pmd_t *pmd_tbl, rt_ubase_t va, rt_ubase_t va_end)
                 if (((va & ~S2_PMD_MASK) == 0) && ((va_end - va) == S2_PMD_SIZE))
                 {
                     s2_clear_pmd(pmd_ptr);
-                    rt_free(pmd_ptr);
-                    rt_free(pte_tbl);
+                    rt_free(pmd_ptr);   /* This memory gets from heap. */ 
+                    rt_free(pte_tbl);   /* This page table gets from S2_MMUPage_Group. */
                 }
             }
         }
@@ -303,6 +350,9 @@ rt_err_t s2_unmap(struct mm_struct *mm, rt_ubase_t va, rt_ubase_t va_end)
     return RT_EOK;
 }
 
+/*
+ * Translation
+ */
 rt_err_t s2_translate(struct mm_struct *mm, rt_uint64_t va, rt_ubase_t *pa)
 {
     rt_uint64_t pte_offset = va & ~TABLE_ADDR_MASK;  /* [47:12] */

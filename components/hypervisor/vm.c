@@ -8,6 +8,8 @@
  * 2022-06-01     Suqier       first version
  */
 
+#include "rtconfig.h"
+
 #include <stdio.h>
 #include <string.h>
 

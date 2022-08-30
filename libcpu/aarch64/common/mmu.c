@@ -168,6 +168,7 @@ void rt_hw_mmu_tlb_invalidate(void)
 #else
     __asm__ volatile ("tlbi vmalle1\n\r");
 #endif
+
     __asm__ volatile (
         "dsb sy\n\r"
         "isb sy\n\r"

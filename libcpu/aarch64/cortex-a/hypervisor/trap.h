@@ -26,7 +26,6 @@
 #include "vhe/vhe.h"
 #endif
 
-
 /* ESR value */
 #define EC_SHIFT            (26)
 #define EC_MASK             (0b111111)

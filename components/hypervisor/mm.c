@@ -12,7 +12,7 @@
 
 #include "mm.h"
 
-extern void *alloc_vm_pgd(void);
+extern void *alloc_vm_pgd(int vm_idx);
 
 struct vm_area *vm_area_init(struct mm_struct *mm, 
                              rt_uint64_t start, rt_uint64_t end)
@@ -41,8 +41,8 @@ rt_err_t vm_mm_struct_init(struct mm_struct *mm)
 #ifdef RT_USING_SMP
     rt_hw_spin_lock_init(&mm->lock);
 #endif
-
-    mm->pgd_tbl = (pud_t *)alloc_vm_pgd();
+    struct vm *vm = mm->vm;
+    mm->pgd_tbl = (pud_t *)alloc_vm_pgd(vm->vm_idx);
     if (mm->pgd_tbl == RT_NULL)
         return -RT_ENOMEM;
     else
@@ -54,7 +54,6 @@ rt_err_t vm_mm_struct_init(struct mm_struct *mm)
      * Currently only supports a memory case.
      */
     rt_uint64_t ipa_start;
-    struct vm *vm = mm->vm;
     if (vm->os->os_type == OS_TYPE_RT_ZEPHYR)
         ipa_start = 0x40000000;
     else

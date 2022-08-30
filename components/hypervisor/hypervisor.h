@@ -13,8 +13,12 @@
 
 #include <rthw.h>
 #include <rtthread.h>
-
-#ifdef RT_HYPERVISOR
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <optparse.h>
+#include "rtconfig.h"
+#include "vm.h"
 
 #ifdef RT_USING_NVHE
 #include "nvhe/nvhe.h"
@@ -22,12 +26,9 @@
 #include "vhe/vhe.h"
 #endif
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include <optparse.h>
-#include "vm.h"
+#ifndef MAX_VM_NUM
+#define MAX_VM_NUM  4
+#endif
 
 /*
  * Need change these macro to CONFIG_XXX.
@@ -63,7 +64,5 @@ rt_err_t run_vm(void);
 rt_err_t pause_vm(void);
 rt_err_t halt_vm(void);
 rt_err_t delete_vm(void);
-
-#endif  /* RT_HYPERVISOR */ 
 
 #endif  /* __HYPERVISOR_H__ */ 
