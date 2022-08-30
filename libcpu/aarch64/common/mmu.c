@@ -164,22 +164,16 @@ void rt_hw_init_mmu_table(struct mem_desc *mdesc, rt_size_t desc_nr)
 void rt_hw_mmu_tlb_invalidate(void)
 {
 #ifdef  RT_USING_NVHE
-    __asm__ volatile (
-        "tlbi alle2\n\r"
-        "dsb sy\n\r"
-        "isb sy\n\r"
-        "ic ialluis\n\r"
-        "dsb sy\n\r"
-        "isb sy");
+    __asm__ volatile ("tlbi alle2\n\r");
 #else
+    __asm__ volatile ("tlbi vmalle1\n\r");
+#endif
     __asm__ volatile (
-        "tlbi vmalle1\n\r"
         "dsb sy\n\r"
         "isb sy\n\r"
         "ic ialluis\n\r"
         "dsb sy\n\r"
         "isb sy");
-#endif
 }
 
 /*
