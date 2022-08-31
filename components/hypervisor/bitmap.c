@@ -11,7 +11,7 @@
 #include <rtthread.h>
 #include "bitmap.h"
 
-rt_inline void bitmap_init(rt_uint32_t *bitmap)
+void bitmap_init(rt_uint32_t *bitmap)
 {
 	/* 
 	 * For re-use the code of function __rt_ffs(), 
@@ -21,22 +21,22 @@ rt_inline void bitmap_init(rt_uint32_t *bitmap)
     rt_memset(bitmap, 0xFF, sizeof(rt_uint32_t));
 }
 
-rt_inline void bitmap_set_bit(rt_uint32_t *bitmap, int index)
+void bitmap_set_bit(rt_uint32_t *bitmap, int index)
 {
 	*bitmap &= ~(0x1 << index);
 }
 
-rt_inline void bitmap_clr_bit(rt_uint32_t *bitmap, int index)
+void bitmap_clr_bit(rt_uint32_t *bitmap, int index)
 {
 	*bitmap |= 0x1 << index;
 }
 
-rt_inline int bitmap_get_bit(rt_uint32_t *bitmap, int index)
+int bitmap_get_bit(rt_uint32_t *bitmap, int index)
 {
 	return (*bitmap & (0x1 << index)) == (0x1 << index) ? 0 : 1;
 }
 
-rt_inline int bitmap_find_next(rt_uint32_t *bitmap)
+int bitmap_find_next(rt_uint32_t *bitmap)
 {
 	return __rt_ffs(*bitmap) - 1;
 }

@@ -8,6 +8,7 @@
  * 2022-05-30     Suqier       first version
  */
 
+#include "bitmap.h"
 #include "hypervisor.h"
 
 #ifndef RT_USING_SMP
@@ -35,6 +36,7 @@ int rt_hyp_init(void)
     rt_hyp.phy_mem_used = 0;
 
     rt_hyp.next_vm_idx = 0;
+    bitmap_init(&rt_hyp.vm_bitmap);
     rt_hyp.curr_vm_idx = MAX_VM_NUM;
     rt_kprintf("[Info] Support %d VMs max.\n", MAX_VM_NUM);
 
@@ -191,23 +193,6 @@ void help_vm(void)
     rt_kprintf("%2s- %s\n", "create_vm", "create new vm.");
 }
 
-static rt_uint8_t __find_next_vm_idx(void)
-{
-    /*
-     * The value rt_hyp.next_vmid always remains 
-     * the currently available minimum value.
-     */
-    rt_uint8_t vm_idx = rt_hyp.next_vm_idx;
-
-    do
-    {
-        rt_hyp.next_vm_idx++;
-    } while (rt_hyp.next_vm_idx == MAX_VM_NUM 
-          || rt_hyp.vms[rt_hyp.next_vm_idx] != RT_NULL);
-
-    return vm_idx;
-}
-
 rt_err_t create_vm(int argc, char **argv)
 {
     rt_err_t ret = RT_EOK;
@@ -235,7 +220,10 @@ rt_err_t create_vm(int argc, char **argv)
         return -RT_ERROR;
     }
     else
-        vm_idx = __find_next_vm_idx();
+    {
+        vm_idx = bitmap_find_next(&rt_hyp.vm_bitmap);   /* 0 ~ 31 */
+        bitmap_set_bit(&rt_hyp.vm_bitmap, vm_idx);
+    }
 
     new_vm = (struct vm*)rt_malloc(sizeof(struct vm));
     mm = (struct mm_struct*)rt_malloc(sizeof(struct mm_struct));
@@ -498,6 +486,7 @@ rt_err_t delete_vm(void)
             struct vm *del_vm = rt_hyp.vms[vm_idx];
             rt_hyp.vms[vm_idx] = RT_NULL;
             free_vm(del_vm);
+            bitmap_clr_bit(&rt_hyp.vm_bitmap, vm_idx);
             rt_kprintf("[Info] Delete %dth VM success.\n", vm_idx);
             return RT_EOK;
         }
