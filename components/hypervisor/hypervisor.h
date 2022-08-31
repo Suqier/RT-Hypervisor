@@ -27,7 +27,7 @@
 #endif
 
 #ifndef MAX_VM_NUM
-#define MAX_VM_NUM  4
+#define MAX_VM_NUM  8
 #endif
 
 /*
@@ -44,10 +44,10 @@ struct hypervisor
     rt_hw_spinlock_t hyp_lock;
 #endif
 
-    rt_uint16_t next_vm_idx;
-    rt_uint16_t curr_vm_idx;
-    
-    rt_uint16_t total_vm;
+    rt_uint32_t vm_bitmap;
+    rt_uint8_t next_vm_idx;
+    rt_uint8_t curr_vm_idx;
+    rt_uint8_t total_vm;
     struct vm *vms[MAX_VM_NUM];
 
     struct hyp_arch arch;

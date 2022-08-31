@@ -191,13 +191,13 @@ void help_vm(void)
     rt_kprintf("%2s- %s\n", "create_vm", "create new vm.");
 }
 
-static rt_uint16_t __find_next_vm_idx(void)
+static rt_uint8_t __find_next_vm_idx(void)
 {
     /*
      * The value rt_hyp.next_vmid always remains 
      * the currently available minimum value.
      */
-    rt_uint16_t vm_idx = rt_hyp.next_vm_idx;
+    rt_uint8_t vm_idx = rt_hyp.next_vm_idx;
 
     do
     {
@@ -211,7 +211,7 @@ static rt_uint16_t __find_next_vm_idx(void)
 rt_err_t create_vm(int argc, char **argv)
 {
     rt_err_t ret = RT_EOK;
-    rt_uint16_t vm_idx, os_type;
+    rt_uint8_t vm_idx, os_type;
     struct vm *new_vm;
     struct mm_struct *mm;
     char *arg;
@@ -303,7 +303,7 @@ rt_err_t create_vm(int argc, char **argv)
 void pick_vm(int argc, char **argv)
 {
     int opt;
-    rt_uint16_t vm_idx;
+    rt_uint8_t vm_idx;
     struct optparse options;
 
     optparse_init(&options, argv);

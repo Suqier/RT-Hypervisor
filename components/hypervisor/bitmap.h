@@ -11,14 +11,18 @@
 #ifndef __BITMAP_H__
 #define __BITMAP_H__
 
-unsigned char one[8]  = {0b00000001, 0b00000010, 0b00000100, 0b00001000,
-                         0b00010000, 0b00100000, 0b01000000, 0b10000000};
-unsigned char zero[8] = {0b11111110, 0b11111101, 0b11111011, 0b11110111,
-                         0b11101111, 0b11011111, 0b10111111, 0b01111111};
+#include <rtthread.h>
 
-void bitmap_init(unsigned char *bitmap, int size);
-void bitmap_set_bit(unsigned char *bitmap, int size, int index);
-void bitmap_clr_bit(unsigned char *bitmap, int size, int index);
-int  bitmap_get_bit(unsigned char *bitmap, int size, int index);
+/*
+ * This bitmap file is using to managament VM index and VM's page tables.
+ * The default value of VM index (MAX_VM_NUM) is 8  
+ * and for VM's page tables (MMU_TBL_PAGE_NR_MAX) is 32.
+ */
+
+void bitmap_init(rt_uint32_t *bitmap);
+void bitmap_set_bit(rt_uint32_t *bitmap, int index);
+void bitmap_clr_bit(rt_uint32_t *bitmap, int index);
+int bitmap_get_bit(rt_uint32_t *bitmap, int index);
+int bitmap_find_next(rt_uint32_t *bitmap);
 
 #endif  /* __BITMAP_H__ */

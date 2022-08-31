@@ -11,37 +11,32 @@
 #include <rtthread.h>
 #include "bitmap.h"
 
-/*
- * sizeof(unsigned char) = 1
- */
-void bitmap_init(unsigned char *bitmap, int size)
+rt_inline void bitmap_init(rt_uint32_t *bitmap)
 {
-    rt_memset(bitmap, 0, sizeof(unsigned char) * size);
+	/* 
+	 * For re-use the code of function __rt_ffs(), 
+	 * we define 1 to be idle and 0 to be occupied. 
+
+	 */
+    rt_memset(bitmap, 0xFF, sizeof(rt_uint32_t));
 }
 
-void bitmap_set_bit(unsigned char *bitmap, int size, int index)
+rt_inline void bitmap_set_bit(rt_uint32_t *bitmap, int index)
 {
-    int add = index / sizeof(unsigned char *), pos = index % sizeof(unsigned char *);
-	RT_ASSERT(add < size);
-
-	bitmap += add;
-	*bitmap |= one[pos];
+	*bitmap &= ~(0x1 << index);
 }
 
-void bitmap_clr_bit(unsigned char *bitmap, int size, int index)
+rt_inline void bitmap_clr_bit(rt_uint32_t *bitmap, int index)
 {
-    int add = index / sizeof(unsigned char *), pos = index % sizeof(unsigned char *);
-	RT_ASSERT(add < size);
-
-	bitmap += add;
-	*bitmap &= zero[pos];
+	*bitmap |= 0x1 << index;
 }
 
-int bitmap_get_bit(unsigned char* bitmap, int size, int index)
+rt_inline int bitmap_get_bit(rt_uint32_t *bitmap, int index)
 {
-	int add = index / sizeof(unsigned char *), pos = index % sizeof(unsigned char *);
-	RT_ASSERT(add < size);
+	return (*bitmap & (0x1 << index)) == (0x1 << index) ? 0 : 1;
+}
 
-	bitmap += add;
-	return (*bitmap & one[pos]) == one[pos];
+rt_inline int bitmap_find_next(rt_uint32_t *bitmap)
+{
+	return __rt_ffs(*bitmap) - 1;
 }
