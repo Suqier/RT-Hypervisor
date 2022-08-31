@@ -146,9 +146,12 @@
 struct mm_struct;
 struct mem_desc;
 
-void clear_s2_mmu_table(int vm_idx);
-void clear_s2_mmu_page_group(int vm_idx);
-void *alloc_vm_pgd(int vm_idx);
+void clear_s2_mmu_table(rt_uint8_t vm_idx);
+void clear_s2_mmu_page(rt_uint8_t vm_idx, void *page_tbl);
+void clear_s2_mmu_page_group(rt_uint8_t vm_idx);
+void rt_init_s2_mmu_table(void);
+
+void *alloc_vm_pgd(rt_uint8_t vm_idx);
 rt_err_t s2_map(struct mm_struct *mm, struct mem_desc *desc);
 rt_err_t s2_unmap(struct mm_struct *mm, rt_ubase_t va, rt_ubase_t va_end);
 rt_err_t s2_translate(struct mm_struct *mm, rt_uint64_t va, rt_ubase_t *pa);

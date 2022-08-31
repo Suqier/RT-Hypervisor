@@ -12,7 +12,7 @@
 
 #include "mm.h"
 
-extern void *alloc_vm_pgd(int vm_idx);
+extern void *alloc_vm_pgd(rt_uint8_t vm_idx);
 
 struct vm_area *vm_area_init(struct mm_struct *mm, 
                              rt_uint64_t start, rt_uint64_t end)

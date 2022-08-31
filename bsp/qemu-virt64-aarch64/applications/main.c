@@ -11,6 +11,7 @@
 #include <rtthread.h>
 #include <armv8.h>
 #include <lib_helpers.h>
+#include "stage2.h"
 
 int main(int argc, char** argv)
 {

@@ -165,6 +165,7 @@ static rt_err_t __hyp_arch_init(void)
     /* Software part init: arch feature detect and rt_hyp set */
     __set_ipa_size();
     __set_vmid_bits();
+    rt_init_s2_mmu_table();
 
     /* Hardware part init: such as cpu, gic, timer and so on */
     ret = __init_subsystems();

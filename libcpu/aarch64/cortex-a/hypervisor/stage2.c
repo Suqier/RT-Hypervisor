@@ -9,6 +9,7 @@
  */
 
 #include "rtconfig.h"
+#include "bitmap.h"
 #include "stage2.h"
 
 /* 
@@ -33,46 +34,69 @@ struct S2_MMUPage
     unsigned long page_entry[512];
 } __attribute__((aligned(4096)));
 static volatile struct S2_MMUPage S2_MMUPage_Group[MAX_VM_NUM][MMU_TBL_PAGE_NR_MAX];
-static volatile unsigned long page_i[MAX_VM_NUM] = {0};
+static rt_uint32_t s2_page_bitmap[MAX_VM_NUM];
 
 /* 
- * Using these clear function when delete VM 
+ * Using these clear function when init system or delete VM 
  */
-void clear_s2_mmu_table(int vm_idx)
+void clear_s2_mmu_table(rt_uint8_t vm_idx)
 {
     RT_ASSERT(vm_idx >= 0 && vm_idx < MAX_VM_NUM);
     rt_memset((void *)&S2_MMUTable_Group[vm_idx], 0, sizeof(struct S2_MMUTable));
 }
 
-void clear_s2_mmu_page_group(int vm_idx)
+void clear_s2_mmu_page(rt_uint8_t vm_idx, void *page_tbl)
+{
+    rt_memset(page_tbl, 0, 4096);
+
+    int page_i = page_tbl - (void *)S2_MMUPage_Group[vm_idx];
+    bitmap_clr_bit(&s2_page_bitmap[vm_idx], page_i);
+    
+    page_tbl = RT_NULL;
+}
+
+void clear_s2_mmu_page_group(rt_uint8_t vm_idx)
 {
     RT_ASSERT(vm_idx >= 0 && vm_idx < MAX_VM_NUM);
-    page_i[vm_idx] = 0;
+    bitmap_init(&s2_page_bitmap[vm_idx]);
     rt_memset((void *)S2_MMUPage_Group[vm_idx], 0, 
                 sizeof(struct S2_MMUPage) * MMU_TBL_PAGE_NR_MAX);
 }
 
 /* 
+ * Init system and clear Stage 2 MMU table.
+ */
+void rt_init_s2_mmu_table(void)
+{
+    for (rt_size_t i = 0; i < MAX_VM_NUM; i++)
+    {
+        clear_s2_mmu_table(i);
+        clear_s2_mmu_page_group(i);
+    }
+}
+
+/* 
  * If it can use this vm_idx, then means that this vm_idx is new. 
  */
-void *alloc_vm_pgd(int vm_idx)
+void *alloc_vm_pgd(rt_uint8_t vm_idx)
 {
     RT_ASSERT(vm_idx >= 0 && vm_idx < MAX_VM_NUM);
     return (void *)&S2_MMUTable_Group[vm_idx];
 }
 
-static unsigned long _kernel_free_s2_page(int vm_idx)
+static unsigned long _kernel_free_s2_page(rt_uint8_t vm_idx)
 {
     RT_ASSERT(vm_idx >= 0 && vm_idx < MAX_VM_NUM);
-    
-    if (page_i[vm_idx] >= MMU_TBL_PAGE_NR_MAX)
+
+    int i = bitmap_find_next(&s2_page_bitmap[vm_idx]);
+    if (i == MMU_TBL_PAGE_NR_MAX - 1 && bitmap_get_bit(&s2_page_bitmap[vm_idx], i))
     {
+        rt_kprintf("[Error] No more page can alloc for %d-th VM.\n", vm_idx);
         return RT_NULL;
     }
-
-    ++page_i[vm_idx];
-
-    return (unsigned long)&S2_MMUPage_Group[vm_idx][page_i[vm_idx] - 1].page_entry;
+       
+    bitmap_set_bit(&s2_page_bitmap[vm_idx], i);
+    return (unsigned long)&S2_MMUPage_Group[vm_idx][i].page_entry;
 }
 
 rt_inline void s2_clear_pgd(pgd_t *pgd_ptr) { WRITE_ONCE(*pgd_ptr, 0); }
@@ -139,7 +163,7 @@ static void s2_map_pte(pte_t *pte_tbl, struct mem_desc *desc)
     } while (desc->vaddr_start != desc->vaddr_end);
 }
 
-static rt_err_t s2_map_pmd(pmd_t *pmd_tbl, struct mem_desc *desc, int vm_idx)
+static rt_err_t s2_map_pmd(pmd_t *pmd_tbl, struct mem_desc *desc, rt_uint8_t vm_idx)
 {
     pmd_t *pmd_ptr;
     pte_t *pte_tbl;
@@ -191,7 +215,7 @@ static rt_err_t s2_map_pmd(pmd_t *pmd_tbl, struct mem_desc *desc, int vm_idx)
     return RT_EOK;
 }
 
-static rt_err_t s2_map_pud(pud_t *pud_tbl, struct mem_desc *desc, int vm_idx)
+static rt_err_t s2_map_pud(pud_t *pud_tbl, struct mem_desc *desc, rt_uint8_t vm_idx)
 {
     pud_t *pud_ptr;
     pmd_t *pmd_tbl;
@@ -253,7 +277,7 @@ rt_err_t s2_map(struct mm_struct *mm, struct mem_desc *desc)
     RT_ASSERT((desc->vaddr_start < S2_IPA_SIZE) && (desc->vaddr_end < S2_IPA_SIZE));
     RT_ASSERT(IS_2M_ALIGN(desc->vaddr_start) && IS_2M_ALIGN(desc->vaddr_end));
 
-    int vm_idx = mm->vm->vm_idx;
+    rt_uint8_t vm_idx = mm->vm->vm_idx;
     pud_t pud_val = (pud_t)mm->pgd_tbl & TABLE_ADDR_MASK;   /* [47:12] */
     return s2_map_pud((pud_t *)pud_val, desc, vm_idx);
 }
@@ -273,12 +297,13 @@ static void s2_unmap_pte(pte_t *pte_tbl, rt_ubase_t va, rt_ubase_t va_end)
         if (*pte_tmp)
         {
             s2_clear_pte(pte_tmp);
-            rt_free(pte_tmp);   /* This memory gets from heap. */
+            rt_free(pte_tmp);   /* Heap memory. */
         }
     } while (va += RT_MM_PAGE_SIZE, va != va_end);
 }
 
-static void s2_unmap_pmd(pmd_t *pmd_tbl, rt_ubase_t va, rt_ubase_t va_end)
+static void s2_unmap_pmd(rt_uint8_t vm_idx, pmd_t *pmd_tbl, 
+                        rt_ubase_t va, rt_ubase_t va_end)
 {
     pmd_t *pmd_ptr = S2_PMD_OFFSET(pmd_tbl, va);
     pte_t *pte_tbl = RT_NULL;
@@ -304,8 +329,8 @@ static void s2_unmap_pmd(pmd_t *pmd_tbl, rt_ubase_t va, rt_ubase_t va_end)
                 if (((va & ~S2_PMD_MASK) == 0) && ((va_end - va) == S2_PMD_SIZE))
                 {
                     s2_clear_pmd(pmd_ptr);
-                    rt_free(pmd_ptr);   /* This memory gets from heap. */ 
-                    rt_free(pte_tbl);   /* This page table gets from S2_MMUPage_Group. */
+                    rt_free(pmd_ptr);   /* Heap memory. */ 
+                    clear_s2_mmu_page(vm_idx, pte_tbl);   /* S2_MMUPage_Group. */
                 }
             }
         }
@@ -327,12 +352,12 @@ static void s2_unmap_pud(struct mm_struct *mm, rt_ubase_t va, rt_ubase_t va_end)
         if (*pud_ptr)
         {
             pmd_tbl = (pmd_t *)(*pud_ptr & TABLE_ADDR_MASK);
-            s2_unmap_pmd(pmd_tbl, va, next);
+            s2_unmap_pmd(mm->vm->vm_idx, pmd_tbl, va, next);
             if (((va & ~S2_PUD_MASK) == 0) && ((va_end - va) == S2_PUD_SIZE))
             {
                 s2_clear_pud(pud_ptr);
-                rt_free(pud_ptr);
-                rt_free(pmd_tbl);
+                rt_free(pud_ptr);    /* Heap memory. */ 
+                clear_s2_mmu_page(mm->vm->vm_idx , pmd_tbl);    /* S2_MMUPage_Group. */
             }
         }
     } while (pud_ptr++, va = next, va != va_end);
