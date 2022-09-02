@@ -11,7 +11,6 @@
 #include <rtthread.h>
 #include <armv8.h>
 #include <lib_helpers.h>
-#include "stage2.h"
 
 int main(int argc, char** argv)
 {
@@ -19,6 +18,6 @@ int main(int argc, char** argv)
 
     rt_ubase_t currEL = rt_hw_get_current_el();
     rt_kprintf("Now is at EL%d\n", currEL);
-    
+
     return 0;
 }

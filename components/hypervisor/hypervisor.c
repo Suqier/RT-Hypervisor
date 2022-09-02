@@ -226,8 +226,8 @@ rt_err_t create_vm(int argc, char **argv)
         bitmap_set_bit(&rt_hyp.vm_bitmap, vm_idx);
     }
 
-    new_vm = (struct vm*)rt_malloc(sizeof(struct vm));
-    mm = (struct mm_struct*)rt_malloc(sizeof(struct mm_struct));
+    new_vm = (struct vm *)rt_malloc(sizeof(struct vm));
+    mm = (struct mm_struct *)rt_malloc(sizeof(struct mm_struct));
     if (!new_vm || !mm)
     {
         rt_kprintf("[Error] Allocate memory for new vm failure.\n");
@@ -464,7 +464,7 @@ rt_err_t halt_vm(void)
         return ret;
 
     rt_uint64_t vm_idx = rt_hyp.curr_vm_idx;
-    struct vm* vm = rt_hyp.vms[vm_idx];
+    struct vm *vm = rt_hyp.vms[vm_idx];
     shutdown_vm(vm);
 
     return RT_EOK;
@@ -477,12 +477,12 @@ rt_err_t delete_vm(void)
     if (ret)
         return ret;
 
-    rt_uint64_t vm_idx = rt_hyp.curr_vm_idx;
+    rt_uint8_t vm_idx = rt_hyp.curr_vm_idx;
     if (rt_hyp.vms[vm_idx])
     {
         /* halt the VM and free VM memory */
         rt_err_t ret = halt_vm();
-        if (ret == 0)
+        if (!ret)
         {
             struct vm *del_vm = rt_hyp.vms[vm_idx];
             rt_hyp.vms[vm_idx] = RT_NULL;
@@ -556,7 +556,7 @@ void list_vm(void)
 
     for (rt_size_t i = 0; i < MAX_VM_NUM; i++)
     {
-        struct vm* vm = rt_hyp.vms[i];
+        struct vm *vm = rt_hyp.vms[i];
         if (vm)
         {
             if (i == rt_hyp.curr_vm_idx)

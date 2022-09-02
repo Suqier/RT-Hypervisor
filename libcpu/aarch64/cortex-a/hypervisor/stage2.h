@@ -14,7 +14,9 @@
 #include <rtdef.h>
 #include <rtthread.h>
 
-#include "lib_helpers.h"
+#include <lib_helpers.h>
+#include <mm.h>
+
 #include "virt.h"
 
 /* 
@@ -150,6 +152,7 @@ void clear_s2_mmu_table(rt_uint8_t vm_idx);
 void clear_s2_mmu_page(rt_uint8_t vm_idx, void *page_tbl);
 void clear_s2_mmu_page_group(rt_uint8_t vm_idx);
 void rt_init_s2_mmu_table(void);
+
 
 void *alloc_vm_pgd(rt_uint8_t vm_idx);
 rt_err_t s2_map(struct mm_struct *mm, struct mem_desc *desc);

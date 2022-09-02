@@ -14,7 +14,7 @@
 #include <string.h>
 
 #include "vm.h"
-#include "virt.h"
+#include "virt_arch.h"
 
 const struct os_desc os_support[MAX_OS_TYPE] =
 {
@@ -64,6 +64,21 @@ const char* os_type_str[OS_TYPE_OTHER + 1] =
     "Linux", "RT-Thread", "Zephyr", "Other"
 };
 
+static void __modify_vcpu_init_spsr(rt_ubase_t from)
+{
+    /* 
+     * When creating vCPU thread, we'll using function rt_hw_stack_init() in 
+     * stack.c, which set the SPSR of thread is current exception level. 
+     * But vCPU thread need a lower exception level when creating. 
+     */
+    rt_ubase_t _spsr = SPSR_EL1H | DAIF_FIQ | DAIF_IRQ | DAIF_ABT | DAIF_DBG;
+    __asm__ volatile ("mov sp, %0": "=r"(from));
+    __asm__ volatile ("add sp, sp, #0x10");
+    __asm__ volatile ("mov x3, %0": "=r"(_spsr));
+    __asm__ volatile ("ldr x3, [sp], #0x08\n\r"
+                      "sub sp, sp, #0x08");
+}
+
 static struct vcpu *create_vcpu(struct vm *vm, rt_uint32_t vcpu_id)
 {
     char name[VM_NAME_SIZE];
@@ -71,8 +86,8 @@ static struct vcpu *create_vcpu(struct vm *vm, rt_uint32_t vcpu_id)
     struct vcpu_arch * arch;
     struct rt_thread *thread;
 
-    vcpu = (struct vcpu *)rt_malloc(sizeof(struct vcpu));
-    arch = (struct vcpu_arch *)rt_malloc(sizeof(struct vcpu_arch));
+    vcpu = (struct vcpu*)rt_malloc(sizeof(struct vcpu));
+    arch = (struct vcpu_arch*)rt_malloc(sizeof(struct vcpu_arch));
     if (vcpu == RT_NULL || arch == RT_NULL)
     {
         rt_kprintf("[Error] create %dth vCPU failure.\n", vcpu_id);
@@ -81,7 +96,7 @@ static struct vcpu *create_vcpu(struct vm *vm, rt_uint32_t vcpu_id)
 
 	rt_memset(name, 0, VM_NAME_SIZE);
 	sprintf(name, "m%d_c%d", vm->vm_idx, vcpu_id);
-	thread = rt_thread_create(name, (void *)vcpu_sche_in, (void *)vcpu, 
+	thread = rt_thread_create(name, (void *)(vm->os->entry_point), RT_NULL, 
                         4096, FINSH_THREAD_PRIORITY + 1, THREAD_TIMESLICE);
 	if (thread == RT_NULL)
     {
@@ -98,6 +113,7 @@ static struct vcpu *create_vcpu(struct vm *vm, rt_uint32_t vcpu_id)
     vm->vcpus[vcpu_id] = vcpu;
     rt_memset(arch, 0, sizeof(struct vcpu_arch));
     hook_vcpu_state_init(vcpu);
+    __modify_vcpu_init_spsr((rt_ubase_t)&vcpu->thread->sp);
 
     if (vcpu_id)
         vm->vcpus[vcpu_id - 1]->next = vcpu;
@@ -123,7 +139,7 @@ static void go_vcpu(struct vcpu *vcpu)
 {
     if (vcpu->thread)
     {
-        /* prepare EL1 sys regs, then run vcpu */
+        /* prepare EL1 sys regs, then run vCPU */
         rt_thread_startup(vcpu->thread);
     }
     else
@@ -251,10 +267,10 @@ void go_vm(struct vm *vm)
         rt_kprintf("[Error] Start %dth VM failure.\n", vm->vm_idx);
 }
 
-void suspend_vm(struct vm *vm)
+void suspend_vm(struct vm * vm)
 {
     rt_err_t ret;
-    struct vcpu *vcpu;
+    struct vcpu * vcpu;
 
 #ifdef RT_USING_SMP
     rt_hw_spin_lock(&vm->vm_lock);

@@ -17,8 +17,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <optparse.h>
+#include <virt_arch.h>
+
 #include "rtconfig.h"
 #include "vm.h"
+
+
 
 #ifdef RT_USING_NVHE
 #include "nvhe/nvhe.h"

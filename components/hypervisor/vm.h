@@ -82,7 +82,7 @@ rt_inline rt_uint32_t get_vcpu_id(struct vcpu *vcpu)
     return vcpu->vcpu_id;
 }
 
-rt_inline int get_vm_id(struct vcpu *vcpu)
+rt_inline rt_uint8_t get_vm_id(struct vcpu *vcpu)
 {
     return vcpu->vm->vmid;
 }

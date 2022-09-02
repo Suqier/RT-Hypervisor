@@ -11,6 +11,7 @@
 #include "rtconfig.h"
 #include "bitmap.h"
 #include "stage2.h"
+#include "virt_arch.h"
 
 /* 
  * VM Page Table 

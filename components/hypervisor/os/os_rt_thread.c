@@ -9,6 +9,7 @@
  */
 
 #include "os.h"
+#include "vm.h"
 
 /* 
  * OS ops implement for RT-Thread 

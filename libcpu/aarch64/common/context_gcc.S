@@ -468,17 +468,6 @@ vector_error:
 
 // -------------------------------------------------
 #if defined(RT_HYPERVISOR)
-
-/*
- * void __vcpu_entry(void *regs)
- * x0 = pc
- */
-.globl __vcpu_entry
-__vcpu_entry:
-    RESTORE_CONTEXT
-
-    B       .       /* NEVER reach this line! */
-
     .align  8
     .globl  vector_low_sync
 vector_low_sync:

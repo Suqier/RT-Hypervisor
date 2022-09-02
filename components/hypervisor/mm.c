@@ -14,8 +14,7 @@
 
 extern void *alloc_vm_pgd(rt_uint8_t vm_idx);
 
-struct vm_area *vm_area_init(struct mm_struct *mm, 
-                             rt_uint64_t start, rt_uint64_t end)
+struct vm_area *vm_area_init(struct mm_struct *mm, rt_uint64_t start, rt_uint64_t end)
 {
     struct vm_area *va = (struct vm_area *)rt_malloc(sizeof(struct vm_area));
     if (!va)

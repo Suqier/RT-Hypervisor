@@ -11,9 +11,9 @@
 #ifndef __VIRT_H__
 #define __VIRT_H__
 
-#include "armv8.h"
-#include "lib_helpers.h"
-#include "vm.h"
+#include <armv8.h>
+#include <lib_helpers.h>
+#include <vm.h>
 
 #if defined(RT_HYPERVISOR)
 
@@ -26,12 +26,17 @@ extern rt_uint64_t rt_cpu_mpidr_early[];
 
 #ifdef	RT_USING_NVHE
 #include "nvhe/nvhe.h"
+#define EL1_(REG)	REG##_EL1	/* P2791 - System and Special-purpose register aliasing */
 #else
 #include "vhe/vhe.h"
+#define EL1_(REG)	REG##_EL12
 #endif
 
 #define VMID_SHIFT  (48)
-#define VA_MASK     (0x0000fffffffff000UL)
+#define VA_MASK     (0x0000FFFFFFFFF000UL)
+
+struct vm;
+struct vcpu;
 
 enum vcpu_sysreg 
 {
@@ -79,13 +84,6 @@ enum vcpu_sysreg
 
 	NR_SYS_REGS	    /* Nothing after this line! */
 };
-
-/* P2791 - System and Special-purpose register aliasing */
-#ifdef RT_USING_NVHE
-#define EL1_(REG)	REG##_EL1
-#else
-#define EL1_(REG)	REG##_EL12
-#endif
 
 struct cpu_context
 {
@@ -144,13 +142,13 @@ void __flush_all_tlb(void);
 void flush_vm_all_tlb(struct vm *vm);
 
 void hook_vcpu_state_init(struct vcpu *vcpu);
-
-void __vcpu_entry(void* regs);
-
-void vcpu_sche_in(struct vcpu *vcpu);
-void vcpu_sche_out(struct vcpu* vcpu);
-
 void hook_vcpu_dump_regs(struct vcpu *vcpu);
+
+/* Different type of switch handler interface in arch. */
+void host_to_guest_arch_handler(struct vcpu *vcpu);
+void guest_to_host_arch_handler(struct vcpu *vcpu);
+void vcpu_to_vcpu_arch_handler(struct vcpu *from, struct vcpu *to);
+void guest_to_guest_arch_handler(struct vcpu *from, struct vcpu *to);
 
 #endif  /* RT_HYPERVISOR */
 #endif  /* __VIRT_H__ */
