@@ -85,7 +85,7 @@ void hook_vcpu_state_init(struct vcpu *vcpu)
     struct cpu_context *c = &vcpu->arch->vcpu_ctxt;
     
     vcpu->arch->hcr_el2 = HCR_GUEST_FLAGS;
-    rt_kprintf("[Info] vcpu->arch->hcr_el2 = 0x%16.16p\n", vcpu->arch->hcr_el2);
+    rt_kprintf("[Info] HCR_EL2 val = 0x%08x\n", vcpu->arch->hcr_el2);
 
     c->sys_regs[_MPIDR_EL1]   = vcpu->vcpu_id;  /* set this value to VMPIDR_EL2 */
     c->sys_regs[_MIDR_EL1]    = 0x410FC050;     /* set this value to VMIDR_EL2 */
@@ -308,7 +308,8 @@ void guest_to_host_arch_handler(struct vcpu *vcpu)
  */
 void vcpu_to_vcpu_arch_handler(struct vcpu *from, struct vcpu *to)
 {
-    /*  */
+    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
+
 }
 
 /*
@@ -316,6 +317,8 @@ void vcpu_to_vcpu_arch_handler(struct vcpu *from, struct vcpu *to)
  */
 void guest_to_guest_arch_handler(struct vcpu *from, struct vcpu *to)
 {
+    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
+
     /* save guest_1 runtime env */
 
     /* resotre guest_2 runtime env */

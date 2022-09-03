@@ -64,7 +64,7 @@ const char* os_type_str[OS_TYPE_OTHER + 1] =
     "Linux", "RT-Thread", "Zephyr", "Other"
 };
 
-static void __modify_vcpu_init_spsr(rt_ubase_t from)
+static void modify_vcpu_init_spsr(rt_ubase_t from)
 {
     /* 
      * When creating vCPU thread, we'll using function rt_hw_stack_init() in 
@@ -72,11 +72,11 @@ static void __modify_vcpu_init_spsr(rt_ubase_t from)
      * But vCPU thread need a lower exception level when creating. 
      */
     rt_ubase_t _spsr = SPSR_EL1H | DAIF_FIQ | DAIF_IRQ | DAIF_ABT | DAIF_DBG;
-    __asm__ volatile ("mov sp, %0": "=r"(from));
-    __asm__ volatile ("add sp, sp, #0x10");
-    __asm__ volatile ("mov x3, %0": "=r"(_spsr));
-    __asm__ volatile ("ldr x3, [sp], #0x08\n\r"
-                      "sub sp, sp, #0x08");
+
+    __asm__ volatile ("mov x2, %0"::"r"(from));
+    __asm__ volatile ("mov x3, %0"::"r"(_spsr));
+    __asm__ volatile ("add x2, x2, #0x08");
+    __asm__ volatile ("str x3, [x2]":::"memory");
 }
 
 static struct vcpu *create_vcpu(struct vm *vm, rt_uint32_t vcpu_id)
@@ -113,7 +113,7 @@ static struct vcpu *create_vcpu(struct vm *vm, rt_uint32_t vcpu_id)
     vm->vcpus[vcpu_id] = vcpu;
     rt_memset(arch, 0, sizeof(struct vcpu_arch));
     hook_vcpu_state_init(vcpu);
-    __modify_vcpu_init_spsr((rt_ubase_t)&vcpu->thread->sp);
+    modify_vcpu_init_spsr((rt_ubase_t)vcpu->thread->sp);
 
     if (vcpu_id)
         vm->vcpus[vcpu_id - 1]->next = vcpu;

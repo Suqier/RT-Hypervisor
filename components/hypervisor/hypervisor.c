@@ -10,6 +10,7 @@
 
 #include "bitmap.h"
 #include "hypervisor.h"
+#include "switch.h"
 
 #ifndef RT_USING_SMP
 #define RT_CPUS_NR      1
@@ -181,6 +182,8 @@ rt_err_t rt_hypervisor_init(void)
     ret = __hyp_arch_init();
     if (ret != RT_EOK)
         return ret;
+
+    rt_scheduler_sethook(switch_hook);
 
     rt_kprintf("[Info] RT-Hypervisor init over\n");
     return ret;
