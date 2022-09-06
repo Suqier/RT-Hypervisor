@@ -64,7 +64,10 @@ const char* os_type_str[OS_TYPE_OTHER + 1] =
     "Linux", "RT-Thread", "Zephyr", "Other"
 };
 
-static void modify_vcpu_init_spsr(rt_ubase_t from)
+/*
+ * For vCPU
+ */
+static void vcpu_init_spsr_modify(rt_ubase_t from)
 {
     /* 
      * When creating vCPU thread, we'll using function rt_hw_stack_init() in 
@@ -79,7 +82,7 @@ static void modify_vcpu_init_spsr(rt_ubase_t from)
     __asm__ volatile ("str x3, [x2]":::"memory");
 }
 
-static struct vcpu *create_vcpu(struct vm *vm, rt_uint32_t vcpu_id)
+struct vcpu *vcpu_create(struct vm *vm, rt_uint32_t vcpu_id)
 {
     char name[VM_NAME_SIZE];
     struct vcpu *vcpu;
@@ -105,15 +108,15 @@ static struct vcpu *create_vcpu(struct vm *vm, rt_uint32_t vcpu_id)
     }
 
     vcpu->arch = arch;
-    vcpu->flag = VCPU_JUST_CREATE;
+    vcpu->status = VCPU_STATUS_NEVER_RUN;
     thread->vcpu = vcpu;
     vcpu->thread = thread;
     vcpu->vcpu_id = vcpu_id;
     vcpu->vm = vm;
     vm->vcpus[vcpu_id] = vcpu;
     rt_memset(arch, 0, sizeof(struct vcpu_arch));
-    hook_vcpu_state_init(vcpu);
-    modify_vcpu_init_spsr((rt_ubase_t)vcpu->thread->sp);
+    vcpu_state_init(vcpu);
+    vcpu_init_spsr_modify((rt_ubase_t)vcpu->thread->sp);
 
     if (vcpu_id)
         vm->vcpus[vcpu_id - 1]->next = vcpu;
@@ -125,7 +128,7 @@ static struct vcpu *create_vcpu(struct vm *vm, rt_uint32_t vcpu_id)
     return vcpu;
 }
 
-static void free_vcpu(struct vcpu *vcpu)
+void vcpu_free(struct vcpu *vcpu)
 {
     if (vcpu)
     {
@@ -135,29 +138,18 @@ static void free_vcpu(struct vcpu *vcpu)
     }
 }
 
-static void go_vcpu(struct vcpu *vcpu)
-{
-    if (vcpu->thread)
-    {
-        /* prepare EL1 sys regs, then run vCPU */
-        rt_thread_startup(vcpu->thread);
-    }
-    else
-        rt_kprintf("[Error] Run %dth vCPU failure.\n", vcpu->vcpu_id);
-}
-
-static rt_err_t create_vcpus(struct vm *vm)
+rt_err_t vcpus_create(struct vm *vm)
 {
     for (rt_size_t i = 0; i < vm->nr_vcpus; i++)
     {
-        struct vcpu *vcpu = create_vcpu(vm, i);
+        struct vcpu *vcpu = vcpu_create(vm, i);
         if (vcpu == RT_NULL)
         {
             for (rt_size_t j = 0; j < vm->nr_vcpus; j++)
             {
                 vcpu = vm->vcpus[j];
                 if (vcpu)
-                    free_vcpu(vcpu);
+                    vcpu_free(vcpu);
                 else
                     continue;
             }
@@ -168,27 +160,73 @@ static rt_err_t create_vcpus(struct vm *vm)
         }
     }
 
-    rt_kprintf("[Info] Create %d vCPUs success for %dth VM\n", 
+    rt_kprintf("[Info] Create %d vCPUs success for %dth VM.\n", 
                         vm->nr_vcpus, vm->vm_idx);
     return RT_EOK;
 }
 
-void vm_config_init(struct vm *vm, rt_uint16_t vm_idx)
+void vcpu_go(struct vcpu *vcpu)
 {
-    vm->vm_idx = vm_idx;
-    rt_kprintf("[Info] Allocate VM id is %03d\n", vm_idx);
-    vm->status = VM_STATUS_NEVER_RUN;
-
-#ifdef RT_USING_SMP
-    rt_hw_spin_lock_init(&vm->vm_lock);
-#endif
-    
-    vm->mm->mem_size = vm->os->mm_size;
-    vm->mm->mem_used = 0;
-    vm->nr_vcpus = vm->os->nr_vcpus;
+    if (vcpu->thread && vcpu->status != VCPU_STATUS_ONLINE)
+    {
+        vcpu->status = VCPU_STATUS_ONLINE;
+        rt_thread_startup(vcpu->thread);
+    }
+    else
+        rt_kprintf("[Error] Run %dth vCPU failure for %dth VM.\n", 
+                vcpu->vcpu_id, vcpu->vm->vm_idx);
 }
 
-static rt_err_t load_os_img(struct vm *vm)		
+void vcpu_suspend(struct vcpu *vcpu)
+{
+    /* Turn vcpu->thread into RT_THREAD_SUSPEND status. */
+    rt_kprintf("[Info] Suspend %dth vCPU now for %dth VM.\n", 
+            vcpu->vcpu_id, vcpu->vm->vm_idx);
+    if (vcpu->status == VCPU_STATUS_ONLINE)
+    {
+        vcpu->status = VCPU_STATUS_SUSPEND;
+        rt_thread_suspend(vcpu->thread);
+    }
+    else
+        rt_kprintf("[Error] Suspend %dth vCPU failure for %dth VM.\n", 
+                vcpu->vcpu_id, vcpu->vm->vm_idx);
+}
+
+void vcpu_shutdown(struct vcpu *vcpu)
+{
+    /* Turn vcpu->thread into RT_THREAD_CLOSE status and free vCPU resource. */
+    rt_kprintf("[Info] Shutdown %dth vCPU now for %dth VM.\n", 
+            vcpu->vcpu_id, vcpu->vm->vm_idx);
+    if (vcpu->status == VCPU_STATUS_ONLINE)
+    {
+        vcpu->status = VCPU_STATUS_OFFLINE;
+        rt_thread_suspend(vcpu->thread);
+        rt_thread_delete(vcpu->thread);
+    }
+    else if (vcpu->status == VCPU_STATUS_SUSPEND)
+    {
+        vcpu->status = VCPU_STATUS_OFFLINE;
+        rt_thread_delete(vcpu->thread);
+    }
+    else
+        rt_kprintf("[Error] Shutdown %dth vCPU failure for %dth VM.\n", 
+            vcpu->vcpu_id, vcpu->vm->vm_idx);
+}
+
+void vcpu_fault(struct vcpu *vcpu)
+{
+    /* Report Error, dump vCPU register info and shutdown vCPU. */
+    vcpu->status = VCPU_STATUS_UNKNOWN; /* vCPU fault. */
+    rt_kprintf("[Fault] %dth vCPU Fault for %dth VM.\n", 
+            vcpu->vcpu_id, vcpu->vm->vm_idx);
+    vcpu_regs_dump(vcpu);
+    vcpu_shutdown(vcpu);
+}
+
+/*
+ * For VM
+ */
+rt_err_t os_img_load(struct vm *vm)		
 {
     void *src = (void *)vm->os->os_addr;
     rt_uint64_t dst_va = vm->os->entry_point;
@@ -220,6 +258,21 @@ static rt_err_t load_os_img(struct vm *vm)
     return RT_EOK;
 }
 
+void vm_config_init(struct vm *vm, rt_uint8_t vm_idx)
+{
+    vm->vm_idx = vm_idx;
+    rt_kprintf("[Info] Allocate VM id is %03d\n", vm_idx);
+    vm->status = VM_STATUS_NEVER_RUN;
+
+#ifdef RT_USING_SMP
+    rt_hw_spin_lock_init(&vm->vm_lock);
+#endif
+    
+    vm->mm->mem_size = vm->os->mm_size;
+    vm->mm->mem_used = 0;
+    vm->nr_vcpus = vm->os->nr_vcpus;
+}
+
 rt_err_t vm_init(struct vm *vm)
 {
     rt_err_t ret = RT_EOK;
@@ -244,12 +297,12 @@ rt_err_t vm_init(struct vm *vm)
     if (ret)
         return ret;
 
-    ret = create_vcpus(vm);
+    ret = vcpus_create(vm);
     if (ret)
         return ret;
     
     /* allocate memory for device. TBD */
-    ret = load_os_img(vm);
+    ret = os_img_load(vm);
     if (ret)
         return ret;
 
@@ -257,17 +310,17 @@ rt_err_t vm_init(struct vm *vm)
     return RT_EOK;
 }
 
-void go_vm(struct vm *vm)
+void vm_go(struct vm *vm)
 {
     /* consider VM status? TBD */
     struct vcpu *vcpu = vm->vcpus[0];   /* main core */
     if (vcpu)
-        go_vcpu(vcpu);
+        vcpu_go(vcpu);
     else
         rt_kprintf("[Error] Start %dth VM failure.\n", vm->vm_idx);
 }
 
-void suspend_vm(struct vm * vm)
+void vm_suspend(struct vm * vm)
 {
     rt_err_t ret;
     struct vcpu * vcpu;
@@ -294,7 +347,7 @@ void suspend_vm(struct vm * vm)
 #endif
 }
 
-void shutdown_vm(struct vm *vm)
+void vm_shutdown(struct vm *vm)
 {
     if (vm)
     {
@@ -312,11 +365,11 @@ void shutdown_vm(struct vm *vm)
     }
 }
 
-void free_vm(struct vm *vm)
+void vm_free(struct vm *vm)
 {
-    /* free vcpus resource */
+    /* free vCPUs resource */
     for (rt_size_t i = 0; i < vm->nr_vcpus; i++)
-        free_vcpu(vm->vcpus[i]);
+        vcpu_free(vm->vcpus[i]);
 
     /* free other resource, like memory resouece & TBD */
 }

@@ -35,21 +35,6 @@
 #define ARM_SPI_BIND_CPU_ID 0
 #endif
 
-#ifndef RT_USING_SMP
-#define RT_CPUS_NR 1
-extern int rt_hw_cpu_id(void);
-#else
-extern rt_uint64_t rt_cpu_mpidr_early[];
-#endif /* RT_USING_SMP */
-
-struct arm_gic
-{
-    rt_uint64_t offset;                     /* the first interrupt index in the vector table */
-    rt_uint64_t redist_hw_base[RT_CPUS_NR]; /* the pointer of the gic redistributor */
-    rt_uint64_t dist_hw_base;               /* the base address of the gic distributor */
-    rt_uint64_t cpu_hw_base[RT_CPUS_NR];    /* the base address of the gic cpu interface */
-};
-
 /* 'ARM_GIC_MAX_NR' is the number of cores */
 static struct arm_gic _gic_table[ARM_GIC_MAX_NR];
 static unsigned int _gic_max_irq;

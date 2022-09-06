@@ -40,7 +40,7 @@ struct vcpu;
 
 enum vcpu_sysreg 
 {
-	__INVALID_SYSREG__,
+	__INVALID_VCPU_SYSREG__,
 	/* common state|sp */
 
 	/* context */
@@ -82,13 +82,13 @@ enum vcpu_sysreg
 	
 	/* el2 return state | handle PC and PSTATE */
 
-	NR_SYS_REGS	    /* Nothing after this line! */
+	NR_VCPU_SYS_REGS	    /* Nothing after this line! */
 };
 
 struct cpu_context
 {
 	struct rt_hw_exp_stack regs;
-    rt_uint64_t sys_regs[NR_SYS_REGS];
+    rt_uint64_t sys_regs[NR_VCPU_SYS_REGS];
 
 	/* interrupts & timer virtualization | TBD */
 
@@ -141,8 +141,8 @@ rt_bool_t arm_sve_supported(void);
 void __flush_all_tlb(void);
 void flush_vm_all_tlb(struct vm *vm);
 
-void hook_vcpu_state_init(struct vcpu *vcpu);
-void hook_vcpu_dump_regs(struct vcpu *vcpu);
+void vcpu_state_init(struct vcpu *vcpu);
+void vcpu_regs_dump(struct vcpu *vcpu);
 
 /* Different type of switch handler interface in arch. */
 void host_to_guest_arch_handler(struct vcpu *vcpu);

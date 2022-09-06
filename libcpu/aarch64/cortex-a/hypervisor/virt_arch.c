@@ -79,7 +79,7 @@ rt_inline rt_uint64_t get_vtcr_el2(void)
 	return vtcr_val;
 }
 
-void hook_vcpu_state_init(struct vcpu *vcpu)
+void vcpu_state_init(struct vcpu *vcpu)
 {
     struct vm *vm = vcpu->vm;
     struct cpu_context *c = &vcpu->arch->vcpu_ctxt;
@@ -106,7 +106,7 @@ void hook_vcpu_state_init(struct vcpu *vcpu)
 }
 
 /* Dump vCPU register info */
-void hook_vcpu_dump_regs(struct vcpu *vcpu)
+void vcpu_regs_dump(struct vcpu *vcpu)
 {
     struct cpu_context *c = &vcpu->arch->vcpu_ctxt;
     

@@ -8,6 +8,7 @@
  * 2012-06-08     Suqier       first version
  */
 
+#include <vm.h>
 #include "trap.h"
 
 extern void rt_hw_trap_error(struct rt_hw_exp_stack *regs);
@@ -16,7 +17,7 @@ static rt_uint64_t hvc_trap_call(rt_uint32_t fn, rt_uint64_t arg0,
                              rt_uint64_t arg1, rt_uint64_t arg2)
 {
     return 0;
-    // return arm_hvc_call(fn, arg0, arg1, arg2, 0, 0, 0, 0).x0;
+    return arm_hvc_call(fn, arg0, arg1, arg2, 0, 0, 0, 0).x0;
 }
 
 /* for ESR_EC_UNKNOWN */
@@ -62,10 +63,18 @@ void ec_iabt_low_handler(struct rt_hw_exp_stack *regs, rt_uint32_t esr)
 void ec_dabt_low_handler(struct rt_hw_exp_stack *regs, rt_uint32_t esr)
 {
     rt_kprintf("[Info] %s, %d.\n", __FUNCTION__, __LINE__);
-    while (1) {}
-    
+    rt_uint8_t dfsc = esr & ESR_FSC_TYPE;
+    if (dfsc == ESR_FSC_TRANS || dfsc == ESR_FSC_PERM)
+    {
+        /* MMIO */
+        
+    }
+    else
+    {
+        rt_kprintf("[Error] Unsupported Data Abort Type.\n");
+        vcpu_fault(get_curr_vcpu());
+    }
 }RT_INSTALL_SYNC_DESC(ec_dabt_low, ec_dabt_low_handler, 0);
-
 
 /* sync handler table */
 static struct rt_sync_desc *low_sync_table[] = 

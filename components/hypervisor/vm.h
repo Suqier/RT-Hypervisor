@@ -11,6 +11,8 @@
 #ifndef __VM_H__
 #define __VM_H__
 
+#include <vgic.h>
+
 #include "mm.h"
 #include "os.h"
 
@@ -34,17 +36,27 @@
 #define VCPU_EXCEPT_EL1	        (0 << 11)
 #define VCPU_EXCEPT_EL2	        (1 << 11)
 
+enum 
+{
+    VCPU_STATUS_OFFLINE = 0,
+    VCPU_STATUS_ONLINE,
+    VCPU_STATUS_SUSPEND,
+    VCPU_STATUS_NEVER_RUN,
+    VCPU_STATUS_UNKNOWN,
+};
+
 struct vcpu
 {
     rt_uint32_t vcpu_id;
+    rt_uint16_t status;
     
     struct vm *vm;
     struct vcpu *next;
     struct rt_thread *thread;
 
-    rt_uint64_t flag;
     struct vcpu_arch *arch;  /* vcpu arch related content. */
 }__attribute__((aligned(L1_CACHE_BYTES)));
+typedef struct vcpu *vcpu_t;
 
 enum 
 {
@@ -58,7 +70,7 @@ enum
 struct vm
 {
     int vmid;
-    rt_uint16_t vm_idx;     /* index in hypervisor vms array */ 
+    rt_uint8_t vm_idx;     /* index in hypervisor vms array */ 
     rt_uint16_t status;
     
     char name[VM_NAME_SIZE];
@@ -75,49 +87,42 @@ struct vm
     rt_uint8_t nr_vcpus;
     rt_uint32_t vcpu_affinity[MAX_VCPU_NUM];
     struct vcpu **vcpus;
+
+    /* vGIC */
+    vgic_t vgic;
+
+    /* vTimer | TBD */
+    
+    /* For vTTY and so on */
+    rt_list_t vdev_list;
 }__attribute__((aligned(L1_CACHE_BYTES)));
 
-rt_inline rt_uint32_t get_vcpu_id(struct vcpu *vcpu)
-{
-    return vcpu->vcpu_id;
-}
+rt_inline vcpu_t get_vcpu_by_thread(struct rt_thread *thread){ return (struct vcpu *)thread->vcpu; }
+rt_inline struct vcpu *get_curr_vcpu(void) { return get_vcpu_by_thread(rt_thread_self()); }
+rt_inline struct vm *get_vm_by_thread(struct rt_thread *thread) { return get_vcpu_by_thread(thread)->vm; }
+rt_inline struct vm *get_curr_vm(void) { return get_vm_by_thread(rt_thread_self()); }
 
-rt_inline rt_uint8_t get_vm_id(struct vcpu *vcpu)
-{
-    return vcpu->vm->vmid;
-}
+/*
+ * For vCPU
+ */
+struct vcpu *vcpu_create(struct vm *vm, rt_uint32_t vcpu_id);
+rt_err_t vcpus_create(struct vm *vm);
+void vcpu_init(void);
+void vcpu_go(struct vcpu *vcpu);
+void vcpu_suspend(struct vcpu *vcpu);
+void vcpu_shutdown(struct vcpu *vcpu);
+void vcpu_free(struct vcpu *vcpu);
+void vcpu_fault(struct vcpu *vcpu);
 
-rt_inline struct vm *get_vm_by_vcpu(struct vcpu *vcpu)
-{
-	return vcpu->vm;
-}
-
-rt_inline struct vcpu *get_vcpu_by_thread(struct rt_thread *thread)
-{
-	return (struct vcpu *)thread->user_data;
-}
-
-rt_inline struct vm *get_vm_by_thread(struct rt_thread *thread)
-{
-	struct vcpu *vcpu = get_vcpu_by_thread(thread);
-    return vcpu->vm;
-}
-
-rt_inline struct vcpu *get_curr_vcpu(void)
-{
-    return get_vcpu_by_thread(rt_thread_self());
-}
-
-rt_inline struct vm *get_curr_vm(void)
-{
-    return get_vm_by_thread(rt_thread_self());
-}
-
-void vm_config_init(struct vm *vm, rt_uint16_t vm_idx);
+/*
+ * For VM
+ */
+rt_err_t os_img_load(struct vm *vm);
+void vm_config_init(struct vm *vm, rt_uint8_t vm_idx);
 rt_err_t vm_init(struct vm *vm);
-void go_vm(struct vm *vm);
-void suspend_vm(struct vm *vm);
-void shutdown_vm(struct vm *vm);
-void free_vm(struct vm *vm);
+void vm_go(struct vm *vm);
+void vm_suspend(struct vm *vm);
+void vm_shutdown(struct vm *vm);
+void vm_free(struct vm *vm);
 
 #endif  /* __VM_H__ */ 

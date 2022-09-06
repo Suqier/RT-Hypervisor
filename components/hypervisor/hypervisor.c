@@ -338,7 +338,7 @@ void pick_vm(int argc, char **argv)
 #endif
 }
 
-static rt_err_t check_vm_idx(void)
+static rt_err_t vm_idx_check(void)
 {
     rt_uint64_t vm_idx = rt_hyp.curr_vm_idx;
     rt_uint64_t ret = RT_EOK;
@@ -355,7 +355,7 @@ static rt_err_t check_vm_idx(void)
 static void print_vm(void)
 {
     rt_uint64_t ret = RT_EOK;
-    ret = check_vm_idx();
+    ret = vm_idx_check();
     if (ret)
         return;
 
@@ -374,7 +374,7 @@ rt_err_t run_vm(void)
      * then changes VM status and schedules vCPUs.
      */
     rt_uint64_t ret = RT_EOK;
-    ret = check_vm_idx();
+    ret = vm_idx_check();
     if (ret)
         return ret;
 
@@ -388,7 +388,7 @@ rt_err_t run_vm(void)
             /* open this vm and schedule vcpus. */
             vm->status = VM_STATUS_ONLINE;
             rt_kprintf("[Info] Open %dth VM\n", vm_idx);
-            go_vm(vm);
+            vm_go(vm);
             break;
         case VM_STATUS_ONLINE:
             rt_kprintf("[Info] %dth VM is running\n", vm_idx);
@@ -397,7 +397,7 @@ rt_err_t run_vm(void)
             /* start schedule vcpus. */
             vm->status = VM_STATUS_ONLINE;
             rt_kprintf("[Info] Continue %dth VM\n", vm_idx);
-            go_vm(vm);
+            vm_go(vm);
             break;
         case VM_STATUS_NEVER_RUN:
             /* 
@@ -414,7 +414,7 @@ rt_err_t run_vm(void)
             {
                 vm->status = VM_STATUS_ONLINE;
                 rt_kprintf("[Info] Run %dth VM first time\n", vm_idx);
-                go_vm(vm);
+                vm_go(vm);
             }
             break;
         case VM_STATUS_UNKNOWN:
@@ -439,14 +439,14 @@ rt_err_t pause_vm(void)
      * Changes VM status and stops schedule vCPUs.
      */
     rt_uint64_t ret = RT_EOK;
-    ret = check_vm_idx();
+    ret = vm_idx_check();
     if (ret)
         return ret;
 
     rt_uint64_t vm_idx = rt_hyp.curr_vm_idx;
     struct vm *vm = rt_hyp.vms[vm_idx];
     if (vm)
-        suspend_vm(vm);
+        vm_suspend(vm);
     else
     {
         rt_kprintf("[Error] %dth VM is not set.\n", vm_idx);
@@ -462,13 +462,13 @@ rt_err_t halt_vm(void)
      * Stop running VM and turn VM's status down. 
      */
     rt_uint64_t ret = RT_EOK;
-    ret = check_vm_idx();
+    ret = vm_idx_check();
     if (ret)
         return ret;
 
     rt_uint64_t vm_idx = rt_hyp.curr_vm_idx;
     struct vm *vm = rt_hyp.vms[vm_idx];
-    shutdown_vm(vm);
+    vm_shutdown(vm);
 
     return RT_EOK;
 }
@@ -476,7 +476,7 @@ rt_err_t halt_vm(void)
 rt_err_t delete_vm(void)
 {
     rt_uint64_t ret = RT_EOK;
-    ret = check_vm_idx();
+    ret = vm_idx_check();
     if (ret)
         return ret;
 
@@ -489,7 +489,7 @@ rt_err_t delete_vm(void)
         {
             struct vm *del_vm = rt_hyp.vms[vm_idx];
             rt_hyp.vms[vm_idx] = RT_NULL;
-            free_vm(del_vm);
+            vm_free(del_vm);
             bitmap_clr_bit(&rt_hyp.vm_bitmap, vm_idx);
             rt_kprintf("[Info] Delete %dth VM success.\n", vm_idx);
             return RT_EOK;
