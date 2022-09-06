@@ -92,7 +92,7 @@ struct cpu_context
 
 	/* interrupts & timer virtualization | TBD */
 
-    struct vcpu *vcpu;
+    vcpu_t vcpu;
 };
 
 struct vcpu_arch
@@ -139,14 +139,14 @@ rt_int8_t arm_vmid_bits(void);
 rt_bool_t arm_sve_supported(void);
 
 void __flush_all_tlb(void);
-void flush_vm_all_tlb(struct vm *vm);
+void flush_vm_all_tlb(vm_t vm);
 
-void vcpu_state_init(struct vcpu *vcpu);
-void vcpu_regs_dump(struct vcpu *vcpu);
+void vcpu_state_init(vcpu_t vcpu);
+void vcpu_regs_dump(vcpu_t vcpu);
 
 /* Different type of switch handler interface in arch. */
-void host_to_guest_arch_handler(struct vcpu *vcpu);
-void guest_to_host_arch_handler(struct vcpu *vcpu);
+void host_to_guest_arch_handler(vcpu_t vcpu);
+void guest_to_host_arch_handler(vcpu_t vcpu);
 void vcpu_to_vcpu_arch_handler(struct vcpu *from, struct vcpu *to);
 void guest_to_guest_arch_handler(struct vcpu *from, struct vcpu *to);
 

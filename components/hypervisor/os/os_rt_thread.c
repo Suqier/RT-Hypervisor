@@ -15,18 +15,18 @@
  * OS ops implement for RT-Thread 
  */
 
-void rt_thread_vm_init(struct vm *vm)
+void rt_thread_vm_init(vm_t vm)
 {
     /* do nothing */
 }
 
-void rt_thread_vcpu_init(struct vcpu *vcpu)
+void rt_thread_vcpu_init(vcpu_t vcpu)
 {
     
 
 }
     
-void rt_thread_vcpu_power_on(struct vcpu *vcpu, rt_uint64_t entry_point)
+void rt_thread_vcpu_power_on(vcpu_t vcpu, rt_uint64_t entry_point)
 {
 
 }

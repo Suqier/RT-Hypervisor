@@ -40,7 +40,7 @@ rt_err_t vm_mm_struct_init(struct mm_struct *mm)
 #ifdef RT_USING_SMP
     rt_hw_spin_lock_init(&mm->lock);
 #endif
-    struct vm *vm = mm->vm;
+    vm_t vm = mm->vm;
     mm->pgd_tbl = (pud_t *)alloc_vm_pgd(vm->vm_idx);
     if (mm->pgd_tbl == RT_NULL)
         return -RT_ENOMEM;
@@ -87,7 +87,7 @@ mem_block_t *alloc_mem_block(void)
 
 rt_err_t alloc_vm_memory(struct mm_struct *mm)
 {
-    struct vm *vm = mm->vm;
+    vm_t vm = mm->vm;
     struct vm_area *vma = 
                 rt_list_entry(mm->vm_area_used.next, struct vm_area, node);
     rt_uint64_t va_start = vma->desc.vaddr_start;

@@ -52,7 +52,7 @@ void __flush_all_tlb(void)
 	);
 }
 
-void flush_vm_all_tlb(struct vm *vm)
+void flush_vm_all_tlb(vm_t vm)
 {
     struct mm_struct *mm = vm->mm;
     rt_uint64_t vttbr = ((rt_uint64_t)mm->pgd_tbl & S2_VA_MASK) 
@@ -79,9 +79,9 @@ rt_inline rt_uint64_t get_vtcr_el2(void)
 	return vtcr_val;
 }
 
-void vcpu_state_init(struct vcpu *vcpu)
+void vcpu_state_init(vcpu_t vcpu)
 {
-    struct vm *vm = vcpu->vm;
+    vm_t vm = vcpu->vm;
     struct cpu_context *c = &vcpu->arch->vcpu_ctxt;
     
     vcpu->arch->hcr_el2 = HCR_GUEST_FLAGS;
@@ -106,7 +106,7 @@ void vcpu_state_init(struct vcpu *vcpu)
 }
 
 /* Dump vCPU register info */
-void vcpu_regs_dump(struct vcpu *vcpu)
+void vcpu_regs_dump(vcpu_t vcpu)
 {
     struct cpu_context *c = &vcpu->arch->vcpu_ctxt;
     
@@ -139,7 +139,7 @@ void vcpu_regs_dump(struct vcpu *vcpu)
 /* 
  * When vCPU sche in 
  */
-static void hook_vcpu_load_regs(struct vcpu *vcpu)
+static void hook_vcpu_load_regs(vcpu_t vcpu)
 {
     /* EL1 state restore */
     rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
@@ -185,7 +185,7 @@ static void hook_vcpu_load_regs(struct vcpu *vcpu)
     __ISB();
 }
 
-static void activate_trap(struct vcpu *vcpu)
+static void activate_trap(vcpu_t vcpu)
 {
     rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
     SET_SYS_REG(HCR_EL2, vcpu->arch->hcr_el2);
@@ -201,7 +201,7 @@ static void activate_trap(struct vcpu *vcpu)
     SET_SYS_REG(VBAR_EL1, &system_vectors);
 }
 
-static void load_stage2_setting(struct vcpu *vcpu)
+static void load_stage2_setting(vcpu_t vcpu)
 {
     rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
     __ISB();
@@ -214,7 +214,7 @@ static void load_stage2_setting(struct vcpu *vcpu)
 /*
  * When vCPU sche out 
  */
-static void hook_vcpu_save_regs(struct vcpu *vcpu)
+static void hook_vcpu_save_regs(vcpu_t vcpu)
 {
     /* EL1 state restore */
     rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
@@ -260,14 +260,14 @@ static void hook_vcpu_save_regs(struct vcpu *vcpu)
     __ISB();
 }
 
-static void deactivate_trap(struct vcpu *vcpu)
+static void deactivate_trap(vcpu_t vcpu)
 {
     rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
     SET_SYS_REG(HCR_EL2, HCR_HOST_VHE_FLAGS);
     SET_SYS_REG(CPACR_EL1, CPACR_EL1_DEFAULT);
 }
 
-static void save_stage2_setting(struct vcpu *vcpu)
+static void save_stage2_setting(vcpu_t vcpu)
 {
     rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
     GET_SYS_REG(VTCR_EL2,  vcpu->vm->arch->vtcr_el2);
@@ -279,7 +279,7 @@ static void save_stage2_setting(struct vcpu *vcpu)
  * Before host schedule into guest vCPU, we need prepare the runtime env, 
  * especially EL1 registers.
  */
-void host_to_guest_arch_handler(struct vcpu *vcpu)
+void host_to_guest_arch_handler(vcpu_t vcpu)
 {
     rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
 
@@ -293,7 +293,7 @@ void host_to_guest_arch_handler(struct vcpu *vcpu)
  * Before guest vCPU schedule out to host, we need save the runtime env 
  * for next time restore, especially EL1 registers.
  */
-void guest_to_host_arch_handler(struct vcpu *vcpu)
+void guest_to_host_arch_handler(vcpu_t vcpu)
 {
     rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
 
@@ -306,7 +306,7 @@ void guest_to_host_arch_handler(struct vcpu *vcpu)
  * From vCPU_1 to vCPU_2 in same vm, most of runtime env need not to change.
  * Just GP_REGs need to change by RESTORE_CONTEXT & SAVE_CONTEXT.
  */
-void vcpu_to_vcpu_arch_handler(struct vcpu *from, struct vcpu *to)
+void vcpu_to_vcpu_arch_handler(vcpu_t from, vcpu_t to)
 {
     rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
 
@@ -315,7 +315,7 @@ void vcpu_to_vcpu_arch_handler(struct vcpu *from, struct vcpu *to)
 /*
  * From vCPU_1 to vCPU_2 in different vm.
  */
-void guest_to_guest_arch_handler(struct vcpu *from, struct vcpu *to)
+void guest_to_guest_arch_handler(vcpu_t from, vcpu_t to)
 {
     rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
 

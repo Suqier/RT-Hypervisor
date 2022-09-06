@@ -229,7 +229,7 @@ rt_err_t create_vm(int argc, char **argv)
         bitmap_set_bit(&rt_hyp.vm_bitmap, vm_idx);
     }
 
-    new_vm = (struct vm *)rt_malloc(sizeof(struct vm));
+    new_vm = (vm_t)rt_malloc(sizeof(struct vm));
     mm = (struct mm_struct *)rt_malloc(sizeof(struct mm_struct));
     if (!new_vm || !mm)
     {
@@ -360,7 +360,7 @@ static void print_vm(void)
         return;
 
     rt_uint64_t vm_idx = rt_hyp.curr_vm_idx;
-    struct vm *vm = rt_hyp.vms[vm_idx];
+    vm_t vm = rt_hyp.vms[vm_idx];
     rt_kprintf("[Debug] vm     = 0x%x\n", vm);
     rt_kprintf("[Debug] vm->os = 0x%x\n", vm->os);
     rt_kprintf("[Debug] vm->os->entry_point = 0x%x\n", vm->os->entry_point);
@@ -379,7 +379,7 @@ rt_err_t run_vm(void)
         return ret;
 
     rt_uint64_t vm_idx = rt_hyp.curr_vm_idx;
-    struct vm *vm = rt_hyp.vms[vm_idx];
+    vm_t vm = rt_hyp.vms[vm_idx];
     if (vm)
     {
         switch (vm->status)
@@ -444,7 +444,7 @@ rt_err_t pause_vm(void)
         return ret;
 
     rt_uint64_t vm_idx = rt_hyp.curr_vm_idx;
-    struct vm *vm = rt_hyp.vms[vm_idx];
+    vm_t vm = rt_hyp.vms[vm_idx];
     if (vm)
         vm_suspend(vm);
     else
@@ -467,7 +467,7 @@ rt_err_t halt_vm(void)
         return ret;
 
     rt_uint64_t vm_idx = rt_hyp.curr_vm_idx;
-    struct vm *vm = rt_hyp.vms[vm_idx];
+    vm_t vm = rt_hyp.vms[vm_idx];
     vm_shutdown(vm);
 
     return RT_EOK;
@@ -559,7 +559,7 @@ void list_vm(void)
 
     for (rt_size_t i = 0; i < MAX_VM_NUM; i++)
     {
-        struct vm *vm = rt_hyp.vms[i];
+        vm_t vm = rt_hyp.vms[i];
         if (vm)
         {
             if (i == rt_hyp.curr_vm_idx)

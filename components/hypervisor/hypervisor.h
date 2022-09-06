@@ -52,7 +52,7 @@ struct hypervisor
     rt_uint8_t next_vm_idx;
     rt_uint8_t curr_vm_idx;
     rt_uint8_t total_vm;
-    struct vm *vms[MAX_VM_NUM];
+    vm_t vms[MAX_VM_NUM];
 
     struct hyp_arch arch;
 };

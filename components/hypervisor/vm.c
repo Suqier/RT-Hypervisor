@@ -82,12 +82,12 @@ static void vcpu_init_spsr_modify(rt_ubase_t from)
     __asm__ volatile ("str x3, [x2]":::"memory");
 }
 
-struct vcpu *vcpu_create(struct vm *vm, rt_uint32_t vcpu_id)
+vcpu_t vcpu_create(vm_t vm, rt_uint32_t vcpu_id)
 {
     char name[VM_NAME_SIZE];
-    struct vcpu *vcpu;
-    struct vcpu_arch * arch;
-    struct rt_thread *thread;
+    vcpu_t vcpu;
+    struct vcpu_arch *arch;
+    rt_thread_t tid;
 
     vcpu = (struct vcpu*)rt_malloc(sizeof(struct vcpu));
     arch = (struct vcpu_arch*)rt_malloc(sizeof(struct vcpu_arch));
@@ -99,9 +99,9 @@ struct vcpu *vcpu_create(struct vm *vm, rt_uint32_t vcpu_id)
 
 	rt_memset(name, 0, VM_NAME_SIZE);
 	sprintf(name, "m%d_c%d", vm->vm_idx, vcpu_id);
-	thread = rt_thread_create(name, (void *)(vm->os->entry_point), RT_NULL, 
+	tid = rt_thread_create(name, (void *)(vm->os->entry_point), RT_NULL, 
                         4096, FINSH_THREAD_PRIORITY + 1, THREAD_TIMESLICE);
-	if (thread == RT_NULL)
+	if (tid == RT_NULL)
     {
         rt_free(vcpu);
 		return RT_NULL;
@@ -109,14 +109,14 @@ struct vcpu *vcpu_create(struct vm *vm, rt_uint32_t vcpu_id)
 
     vcpu->arch = arch;
     vcpu->status = VCPU_STATUS_NEVER_RUN;
-    thread->vcpu = vcpu;
-    vcpu->thread = thread;
+    tid->vcpu = vcpu;
+    vcpu->tid = tid;
     vcpu->vcpu_id = vcpu_id;
     vcpu->vm = vm;
     vm->vcpus[vcpu_id] = vcpu;
     rt_memset(arch, 0, sizeof(struct vcpu_arch));
     vcpu_state_init(vcpu);
-    vcpu_init_spsr_modify((rt_ubase_t)vcpu->thread->sp);
+    vcpu_init_spsr_modify((rt_ubase_t)vcpu->tid->sp);
 
     if (vcpu_id)
         vm->vcpus[vcpu_id - 1]->next = vcpu;
@@ -128,21 +128,21 @@ struct vcpu *vcpu_create(struct vm *vm, rt_uint32_t vcpu_id)
     return vcpu;
 }
 
-void vcpu_free(struct vcpu *vcpu)
+void vcpu_free(vcpu_t vcpu)
 {
     if (vcpu)
     {
-        if (vcpu->thread)
-            rt_thread_delete(vcpu->thread);
+        if (vcpu->tid)
+            rt_thread_delete(vcpu->tid);
         rt_free(vcpu);
     }
 }
 
-rt_err_t vcpus_create(struct vm *vm)
+rt_err_t vcpus_create(vm_t vm)
 {
     for (rt_size_t i = 0; i < vm->nr_vcpus; i++)
     {
-        struct vcpu *vcpu = vcpu_create(vm, i);
+        vcpu_t vcpu = vcpu_create(vm, i);
         if (vcpu == RT_NULL)
         {
             for (rt_size_t j = 0; j < vm->nr_vcpus; j++)
@@ -165,19 +165,19 @@ rt_err_t vcpus_create(struct vm *vm)
     return RT_EOK;
 }
 
-void vcpu_go(struct vcpu *vcpu)
+void vcpu_go(vcpu_t vcpu)
 {
-    if (vcpu->thread && vcpu->status != VCPU_STATUS_ONLINE)
+    if (vcpu->tid && vcpu->status != VCPU_STATUS_ONLINE)
     {
         vcpu->status = VCPU_STATUS_ONLINE;
-        rt_thread_startup(vcpu->thread);
+        rt_thread_startup(vcpu->tid);
     }
     else
         rt_kprintf("[Error] Run %dth vCPU failure for %dth VM.\n", 
                 vcpu->vcpu_id, vcpu->vm->vm_idx);
 }
 
-void vcpu_suspend(struct vcpu *vcpu)
+void vcpu_suspend(vcpu_t vcpu)
 {
     /* Turn vcpu->thread into RT_THREAD_SUSPEND status. */
     rt_kprintf("[Info] Suspend %dth vCPU now for %dth VM.\n", 
@@ -185,14 +185,14 @@ void vcpu_suspend(struct vcpu *vcpu)
     if (vcpu->status == VCPU_STATUS_ONLINE)
     {
         vcpu->status = VCPU_STATUS_SUSPEND;
-        rt_thread_suspend(vcpu->thread);
+        rt_thread_suspend(vcpu->tid);
     }
     else
         rt_kprintf("[Error] Suspend %dth vCPU failure for %dth VM.\n", 
                 vcpu->vcpu_id, vcpu->vm->vm_idx);
 }
 
-void vcpu_shutdown(struct vcpu *vcpu)
+void vcpu_shutdown(vcpu_t vcpu)
 {
     /* Turn vcpu->thread into RT_THREAD_CLOSE status and free vCPU resource. */
     rt_kprintf("[Info] Shutdown %dth vCPU now for %dth VM.\n", 
@@ -200,20 +200,20 @@ void vcpu_shutdown(struct vcpu *vcpu)
     if (vcpu->status == VCPU_STATUS_ONLINE)
     {
         vcpu->status = VCPU_STATUS_OFFLINE;
-        rt_thread_suspend(vcpu->thread);
-        rt_thread_delete(vcpu->thread);
+        rt_thread_suspend(vcpu->tid);
+        rt_thread_delete(vcpu->tid);
     }
     else if (vcpu->status == VCPU_STATUS_SUSPEND)
     {
         vcpu->status = VCPU_STATUS_OFFLINE;
-        rt_thread_delete(vcpu->thread);
+        rt_thread_delete(vcpu->tid);
     }
     else
         rt_kprintf("[Error] Shutdown %dth vCPU failure for %dth VM.\n", 
             vcpu->vcpu_id, vcpu->vm->vm_idx);
 }
 
-void vcpu_fault(struct vcpu *vcpu)
+void vcpu_fault(vcpu_t vcpu)
 {
     /* Report Error, dump vCPU register info and shutdown vCPU. */
     vcpu->status = VCPU_STATUS_UNKNOWN; /* vCPU fault. */
@@ -226,7 +226,7 @@ void vcpu_fault(struct vcpu *vcpu)
 /*
  * For VM
  */
-rt_err_t os_img_load(struct vm *vm)		
+rt_err_t os_img_load(vm_t vm)		
 {
     void *src = (void *)vm->os->os_addr;
     rt_uint64_t dst_va = vm->os->entry_point;
@@ -258,7 +258,7 @@ rt_err_t os_img_load(struct vm *vm)
     return RT_EOK;
 }
 
-void vm_config_init(struct vm *vm, rt_uint8_t vm_idx)
+void vm_config_init(vm_t vm, rt_uint8_t vm_idx)
 {
     vm->vm_idx = vm_idx;
     rt_kprintf("[Info] Allocate VM id is %03d\n", vm_idx);
@@ -273,7 +273,7 @@ void vm_config_init(struct vm *vm, rt_uint8_t vm_idx)
     vm->nr_vcpus = vm->os->nr_vcpus;
 }
 
-rt_err_t vm_init(struct vm *vm)
+rt_err_t vm_init(vm_t vm)
 {
     rt_err_t ret = RT_EOK;
     /* 
@@ -310,10 +310,10 @@ rt_err_t vm_init(struct vm *vm)
     return RT_EOK;
 }
 
-void vm_go(struct vm *vm)
+void vm_go(vm_t vm)
 {
     /* consider VM status? TBD */
-    struct vcpu *vcpu = vm->vcpus[0];   /* main core */
+    vcpu_t vcpu = vm->vcpus[0];   /* main core */
     if (vcpu)
         vcpu_go(vcpu);
     else
@@ -332,7 +332,7 @@ void vm_suspend(struct vm * vm)
     for (rt_size_t i = 0; i < vm->nr_vcpus; i++)
     {
         vcpu = vm->vcpus[i];
-        ret = rt_thread_suspend(vcpu->thread);
+        ret = rt_thread_suspend(vcpu->tid);
         if (ret)
         {
             rt_kprintf("[Error] Pause VM failure at %dth vCPU.\n", i);
@@ -347,14 +347,14 @@ void vm_suspend(struct vm * vm)
 #endif
 }
 
-void vm_shutdown(struct vm *vm)
+void vm_shutdown(vm_t vm)
 {
     if (vm)
     {
         for (rt_size_t i = 0; i < vm->nr_vcpus; i++)
         {
-            struct vcpu *vcpu = vm->vcpus[i];
-            rt_thread_delete(vcpu->thread);
+            vcpu_t vcpu = vm->vcpus[i];
+            rt_thread_delete(vcpu->tid);
         }
 
         /* 
@@ -365,7 +365,7 @@ void vm_shutdown(struct vm *vm)
     }
 }
 
-void vm_free(struct vm *vm)
+void vm_free(vm_t vm)
 {
     /* free vCPUs resource */
     for (rt_size_t i = 0; i < vm->nr_vcpus; i++)

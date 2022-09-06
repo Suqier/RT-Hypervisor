@@ -52,7 +52,7 @@ struct vcpu
     
     struct vm *vm;
     struct vcpu *next;
-    struct rt_thread *thread;
+    rt_thread_t tid;
 
     struct vcpu_arch *arch;  /* vcpu arch related content. */
 }__attribute__((aligned(L1_CACHE_BYTES)));
@@ -86,7 +86,7 @@ struct vm
     /* A array for collect vcpu. */
     rt_uint8_t nr_vcpus;
     rt_uint32_t vcpu_affinity[MAX_VCPU_NUM];
-    struct vcpu **vcpus;
+    vcpu_t *vcpus;
 
     /* vGIC */
     vgic_t vgic;
@@ -96,33 +96,34 @@ struct vm
     /* For vTTY and so on */
     rt_list_t vdev_list;
 }__attribute__((aligned(L1_CACHE_BYTES)));
+typedef struct vm *vm_t;
 
-rt_inline vcpu_t get_vcpu_by_thread(struct rt_thread *thread){ return (struct vcpu *)thread->vcpu; }
-rt_inline struct vcpu *get_curr_vcpu(void) { return get_vcpu_by_thread(rt_thread_self()); }
-rt_inline struct vm *get_vm_by_thread(struct rt_thread *thread) { return get_vcpu_by_thread(thread)->vm; }
-rt_inline struct vm *get_curr_vm(void) { return get_vm_by_thread(rt_thread_self()); }
+rt_inline vcpu_t get_vcpu_by_thread(rt_thread_t tid){ return (vcpu_t)tid->vcpu; }
+rt_inline vcpu_t get_curr_vcpu(void) { return get_vcpu_by_thread(rt_thread_self()); }
+rt_inline vm_t get_vm_by_thread(rt_thread_t tid) { return get_vcpu_by_thread(tid)->vm; }
+rt_inline vm_t get_curr_vm(void) { return get_vm_by_thread(rt_thread_self()); }
 
 /*
  * For vCPU
  */
-struct vcpu *vcpu_create(struct vm *vm, rt_uint32_t vcpu_id);
-rt_err_t vcpus_create(struct vm *vm);
+vcpu_t vcpu_create(vm_t vm, rt_uint32_t vcpu_id);
+rt_err_t vcpus_create(vm_t vm);
 void vcpu_init(void);
-void vcpu_go(struct vcpu *vcpu);
-void vcpu_suspend(struct vcpu *vcpu);
-void vcpu_shutdown(struct vcpu *vcpu);
-void vcpu_free(struct vcpu *vcpu);
-void vcpu_fault(struct vcpu *vcpu);
+void vcpu_go(vcpu_t vcpu);
+void vcpu_suspend(vcpu_t vcpu);
+void vcpu_shutdown(vcpu_t vcpu);
+void vcpu_free(vcpu_t vcpu);
+void vcpu_fault(vcpu_t vcpu);
 
 /*
  * For VM
  */
-rt_err_t os_img_load(struct vm *vm);
-void vm_config_init(struct vm *vm, rt_uint8_t vm_idx);
-rt_err_t vm_init(struct vm *vm);
-void vm_go(struct vm *vm);
-void vm_suspend(struct vm *vm);
-void vm_shutdown(struct vm *vm);
-void vm_free(struct vm *vm);
+rt_err_t os_img_load(vm_t vm);
+void vm_config_init(vm_t vm, rt_uint8_t vm_idx);
+rt_err_t vm_init(vm_t vm);
+void vm_go(vm_t vm);
+void vm_suspend(vm_t vm);
+void vm_shutdown(vm_t vm);
+void vm_free(vm_t vm);
 
 #endif  /* __VM_H__ */ 
