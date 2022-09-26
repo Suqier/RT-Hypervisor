@@ -32,8 +32,8 @@ if RT_HYPERVISOR
         help
             If this number greater than default value, than using 16-bits VMID.
 
-    config MAX_OS_TYPE
-        int "MAX_OS_TYPE: Maximum number of OS type supporting simultaneously."
+    config MAX_OS_NUM
+        int "MAX_OS_NUM: Maximum number of OS type supporting simultaneously."
         default 3
         help
             Additional OS information required.

@@ -132,7 +132,7 @@
 #define IS_4K_ALIGN(x)	    (!((rt_uint64_t)(x) & (S2_PTE_SIZE - 1)))
 
 #define S2_PUD_IDX(va)      (((va) >> S2_PUD_SHIFT) & (S2_PUD_NUM - 1))
-#define S2_PMD_IDX(va)      (((va) >> S2_PMD_SHIFT) & (S2_PMD_NUM - 1))
+#define S2_PMD_IDX(va)      (((va) >> S2_PMD_SHIFT) & (S2_PMD_NUM - 1)) /* [21:29] */
 #define S2_PTE_IDX(va)      (((va) >> S2_PTE_SHIFT) & (S2_PTE_NUM - 1)) /* [20:12] */
 
 #define S2_PUD_OFFSET(pud_tbl, va)   ((pud_t *)(pud_tbl) + S2_PUD_IDX((rt_uint64_t)va))

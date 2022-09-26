@@ -9,9 +9,66 @@
  */
 
 #include <vm.h>
+#include <vdev.h>
+
+#include "virt_arch.h"
 #include "trap.h"
 
 extern void rt_hw_trap_error(struct rt_hw_exp_stack *regs);
+
+/*
+ * According to fault_addr to find which device is mmaped
+ * and return it's base address. Maybe vGIC.
+ */
+static void vdev_mmio_handler(struct rt_hw_exp_stack *regs, rt_uint64_t fa, 
+                            rt_bool_t is_write, rt_uint32_t srt)
+{
+    vm_t vm = get_curr_vm();
+    const struct os_desc *os = vm->os;
+
+    /* find base address in virtual GIC */
+    if ((fa >= os->arch.vgic.gicd_addr) 
+     && (fa <  os->arch.vgic.gicd_addr + VGIC_GICD_SIZE))
+    {
+        if (is_write)
+            vm->vgic->ops->write(regs, fa, srt, os->arch.vgic.gicd_addr);
+        else
+            vm->vgic->ops->read(regs, fa, srt, os->arch.vgic.gicd_addr);
+
+        goto _mmio_over;
+    }
+
+    if ((fa >= os->arch.vgic.gicr_addr) 
+     && (fa <  os->arch.vgic.gicr_addr + VGIC_GICR_SIZE))
+    {
+        if (is_write)
+            vm->vgic->ops->write(regs, fa, srt, os->arch.vgic.gicr_addr);
+        else
+            vm->vgic->ops->read(regs, fa, srt, os->arch.vgic.gicr_addr);
+
+        goto _mmio_over;
+    }
+
+    /* find base address in virtual device */
+    struct rt_list_node *pos;
+    rt_list_for_each(pos, &vm->dev_list)
+    {
+        vdev_t vdev = rt_list_entry(pos, struct vdev, node);
+        for(rt_uint8_t i = 0; i < vdev->mmap_num; i++)
+        {
+            if ((fa >= vdev->region->vaddr_start) && (fa < vdev->region->vaddr_end))
+            {
+                // vdev->dev->ops->read();
+                rt_kprintf("[Error] Unsupported Operations.\n");
+                
+                goto _mmio_over;
+            }
+        }
+    }
+
+_mmio_over:
+    return;
+}
 
 static rt_uint64_t hvc_trap_call(rt_uint32_t fn, rt_uint64_t arg0, 
                              rt_uint64_t arg1, rt_uint64_t arg2)
@@ -63,18 +120,37 @@ void ec_iabt_low_handler(struct rt_hw_exp_stack *regs, rt_uint32_t esr)
 void ec_dabt_low_handler(struct rt_hw_exp_stack *regs, rt_uint32_t esr)
 {
     rt_kprintf("[Info] %s, %d.\n", __FUNCTION__, __LINE__);
-    rt_uint8_t dfsc = esr & ESR_FSC_TYPE;
-    if (dfsc == ESR_FSC_TRANS || dfsc == ESR_FSC_PERM)
+    rt_uint8_t dfsc = esr & FSC_TYPE_MASK;
+    rt_uint32_t isv_valid = esr & (1 << ESR_ISV_SHIFT);
+    if ((dfsc == FSC_TRANS || dfsc == FSC_PERM) && (isv_valid == ESR_ISV_VALID))
     {
-        /* MMIO */
-        
+        /* Parse ESR_EL2 register */
+        rt_bool_t is_write, far_valid;
+        rt_uint32_t val, srt;
+        rt_uint64_t fault_addr;
+
+        srt = ESR_GET_SRT(esr);
+        val = ESR_GET_FNV(esr);
+        far_valid = (val == ESR_FNV_VALID) ? RT_TRUE : RT_FALSE;
+        val = ESR_GET_WNR(esr);
+        is_write = (val == ESR_WNR_WRITE) ? RT_TRUE : RT_FALSE;
+
+        if (far_valid)
+        {
+            GET_SYS_REG(FAR_EL2, fault_addr);
+        }
+        else
+            GET_SYS_REG(HPFAR_EL2, fault_addr);
+
+        /* MMIO handler */
+        vdev_mmio_handler(regs, fault_addr, is_write, srt);
     }
     else
     {
-        rt_kprintf("[Error] Unsupported Data Abort Type.\n");
+        rt_kprintf("[Error] Unsupported Data Abort Type or ISV invalid.\n");
         vcpu_fault(get_curr_vcpu());
     }
-}RT_INSTALL_SYNC_DESC(ec_dabt_low, ec_dabt_low_handler, 0);
+}RT_INSTALL_SYNC_DESC(ec_dabt_low, ec_dabt_low_handler, 4);
 
 /* sync handler table */
 static struct rt_sync_desc *low_sync_table[] = 
@@ -96,8 +172,7 @@ void rt_hw_handle_curr_sync(struct rt_hw_exp_stack *regs)
 
 void rt_hw_handle_low_sync(struct rt_hw_exp_stack *regs)
 {
-    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
-    rt_uint64_t esr_val;
+    rt_uint64_t reg_val, esr_val;
     struct rt_sync_desc *desc;
 
     GET_SYS_REG(ESR_EL2, esr_val);
@@ -110,16 +185,18 @@ void rt_hw_handle_low_sync(struct rt_hw_exp_stack *regs)
     }
 
     rt_kprintf("[Info]   ESR_EL2 = 0x%08x\n", esr_val);
-    GET_SYS_REG(HCR_EL2, esr_val);
-    rt_kprintf("[Info]   HCR_EL2 = 0x%08x\n", esr_val);
-    GET_SYS_REG(FAR_EL2, esr_val);
-    rt_kprintf("[Info]   FAR_EL2 = 0x%08x\n", esr_val);
-    GET_SYS_REG(VTTBR_EL2, esr_val);
-    rt_kprintf("[Info] VTTBR_EL2 = 0x%08x\n", esr_val);
-    GET_SYS_REG(SPSR_EL2, esr_val);
-    rt_kprintf("[Info]  SPSR_EL2 = 0x%08x\n", esr_val);    
-    GET_SYS_REG(ELR_EL2, esr_val);
-    rt_kprintf("[Info]   ELR_EL2 = 0x%08x\n", esr_val);
+    GET_SYS_REG(HCR_EL2, reg_val);
+    rt_kprintf("[Info]   HCR_EL2 = 0x%08x\n", reg_val);
+    GET_SYS_REG(FAR_EL2, reg_val);
+    rt_kprintf("[Info]   FAR_EL2 = 0x%08x\n", reg_val);
+    GET_SYS_REG(HPFAR_EL2, reg_val);
+    rt_kprintf("[Info] HPFAR_EL2 = 0x%08x\n", reg_val);
+    GET_SYS_REG(VTTBR_EL2, reg_val);
+    rt_kprintf("[Info] VTTBR_EL2 = 0x%08x\n", reg_val);
+    GET_SYS_REG(SPSR_EL2, reg_val);
+    rt_kprintf("[Info]  SPSR_EL2 = 0x%08x\n", reg_val);    
+    GET_SYS_REG(ELR_EL2, reg_val);
+    rt_kprintf("[Info]   ELR_EL2 = 0x%08x\n", reg_val);
 
     desc = low_sync_table[ec_type];
     regs->pc += desc->pc_offset;
@@ -129,7 +206,6 @@ void rt_hw_handle_low_sync(struct rt_hw_exp_stack *regs)
 /* handler sync exception from low level. */
 void rt_hw_trap_sync(struct rt_hw_exp_stack *regs)
 {
-    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);   
     rt_uint64_t hcr_el2_val;
     GET_SYS_REG(HCR_EL2, hcr_el2_val);
 

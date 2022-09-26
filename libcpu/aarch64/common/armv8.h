@@ -64,6 +64,24 @@ struct rt_hw_exp_stack
 #define PSTATE_EL2                  ( ( unsigned long long ) 0x08 )
 #define PSTATE_EL3                  ( ( unsigned long long ) 0x0c )
 
+static rt_uint16_t xn_offset[32] = 
+{
+     [0] = 0x110,  [1] = 0x118,  [2] = 0x100,  [3] = 0x108, 
+     [4] = 0x0F0,  [5] = 0x0F8,  [6] = 0x0E0,  [7] = 0x0E8, 
+     [8] = 0x0D0,  [9] = 0x0D8, [10] = 0x0C0, [11] = 0x0C8, 
+    [12] = 0x0B0, [13] = 0x0B8, [14] = 0x0A0, [15] = 0x0A8, 
+    [16] = 0x090, [17] = 0x098, [18] = 0x080, [19] = 0x088, 
+    [20] = 0x070, [21] = 0x078, [22] = 0x060, [23] = 0x068, 
+    [24] = 0x050, [25] = 0x058, [26] = 0x040, [27] = 0x048, 
+    [28] = 0x030, [29] = 0x038, [30] = 0x010, [31] = 0x018, 
+};
+
+rt_inline unsigned long long *regs_xn(struct rt_hw_exp_stack *r, rt_uint32_t n)
+{
+    return (unsigned long long *)((rt_uint64_t)r + (rt_uint64_t)xn_offset[n]);
+}
+
+
 rt_ubase_t rt_hw_get_current_el(void);
 void rt_hw_set_elx_env(void);
 void rt_hw_set_current_vbar(rt_ubase_t addr);

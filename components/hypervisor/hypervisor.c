@@ -11,6 +11,9 @@
 #include "bitmap.h"
 #include "hypervisor.h"
 #include "switch.h"
+#include "os.h"
+
+#include <vgic.h>
 
 #ifndef RT_USING_SMP
 #define RT_CPUS_NR      1
@@ -23,7 +26,7 @@ static struct rt_thread hyp_cpu_init[RT_CPUS_NR];
 static rt_uint8_t hyp_stack[RT_CPUS_NR][2048];
 static int parameter[RT_CPUS_NR];
 
-extern const struct os_desc os_support[MAX_OS_TYPE];
+extern const struct os_desc os_img[MAX_OS_NUM];
 extern const char* vm_status_str[VM_STATUS_UNKNOWN + 1];
 extern const char* os_type_str[OS_TYPE_OTHER + 1];
 
@@ -200,9 +203,10 @@ void help_vm(void)
 rt_err_t create_vm(int argc, char **argv)
 {
     rt_err_t ret = RT_EOK;
-    rt_uint8_t vm_idx, os_type;
-    struct vm *new_vm;
+    rt_uint8_t vm_idx, os_idx;
+    vm_t new_vm;
     struct mm_struct *mm;
+    vgic_t vgic;
     char *arg;
     int opt;
     struct optparse options;
@@ -231,17 +235,20 @@ rt_err_t create_vm(int argc, char **argv)
 
     new_vm = (vm_t)rt_malloc(sizeof(struct vm));
     mm = (struct mm_struct *)rt_malloc(sizeof(struct mm_struct));
-    if (!new_vm || !mm)
+    vgic = vgic_create();
+    if (new_vm == RT_NULL || mm == RT_NULL || vgic == RT_NULL)
     {
-        rt_kprintf("[Error] Allocate memory for new vm failure.\n");
+        rt_kprintf("[Error] Allocate memory for new VM failure.\n");
         rt_free(new_vm);
         rt_free(mm);
+        vgic_free(vgic);
         return -RT_ENOMEM;
     }
     else
     {
         new_vm->mm = mm;
         mm->vm = new_vm;
+        new_vm->vgic = vgic;
     }
 
     /* 
@@ -254,13 +261,14 @@ rt_err_t create_vm(int argc, char **argv)
         switch (opt) 
         {
         case 'i':
-            os_type = strtol((const char *)options.optarg, NULL, 10);
-            if(os_type < 0 || os_type >= MAX_OS_TYPE)
+            os_idx = strtol((const char *)options.optarg, NULL, 10);
+            if(os_idx < 0 || os_idx >= MAX_OS_NUM)
             {
-                rt_kprintf("[Error] OS_type %d is out of scope\n", os_type);
+                rt_kprintf("[Error] OS_type %d is out of scope\n", os_idx);
                 return -RT_EINVAL;
             }
-            new_vm->os = &os_support[os_type];
+            new_vm->os = &os_img[os_idx];
+            new_vm->os_idx = os_idx;
             break;
         case 'n':
             strncpy(new_vm->name, options.optarg, VM_NAME_SIZE);
@@ -361,10 +369,10 @@ static void print_vm(void)
 
     rt_uint64_t vm_idx = rt_hyp.curr_vm_idx;
     vm_t vm = rt_hyp.vms[vm_idx];
-    rt_kprintf("[Debug] vm     = 0x%x\n", vm);
-    rt_kprintf("[Debug] vm->os = 0x%x\n", vm->os);
-    rt_kprintf("[Debug] vm->os->entry_point = 0x%x\n", vm->os->entry_point);
-    rt_kprintf("[Debug] vm->mm = 0x%x\n", vm->mm);
+    rt_kprintf("[Debug] vm         = 0x%x\n", vm);
+    rt_kprintf("[Debug] vm->os     = 0x%x\n", vm->os);
+    rt_kprintf("[Debug] vm->os->ep = 0x%x\n", vm->os->img.ep);
+    rt_kprintf("[Debug] vm->mm     = 0x%x\n", vm->mm);
 }
 
 rt_err_t run_vm(void)
@@ -528,13 +536,13 @@ void list_os_img(void)
     object_split(maxlen);
     rt_kprintf(" ----- ---- ------\n");
 
-    for (rt_size_t i = 0; i < MAX_OS_TYPE; i++)
+    for (rt_size_t i = 0; i < MAX_OS_NUM; i++)
     {
-        const struct os_desc *os = &os_support[i];
+        const struct os_desc *os = &os_img[i];
         if (os)
         {
             rt_kprintf("%-*.*s %5d %4.1d %6d\n", maxlen, VM_NAME_SIZE, 
-                    os_type_str[os->os_type], i, os->nr_vcpus, os->mm_size);
+                    os_type_str[os->img.type], i, os->cpu.num, os->mem.size);
         }
     }
 }
@@ -568,8 +576,8 @@ void list_vm(void)
                 fmt = "%-*.*s %6.3d %-8.s %-10s %4.1d %8d\n";
             
             rt_kprintf(fmt, maxlen, VM_NAME_SIZE, vm->name, vm->vm_idx,
-                    vm_status_str[vm->status], os_type_str[vm->os->os_type],
-                    vm->os->nr_vcpus, vm->mm->mem_size);
+                    vm_status_str[vm->status], os_type_str[vm->os->img.type],
+                    vm->os->cpu.num, vm->mm->mem_size);
         }
     }
 }

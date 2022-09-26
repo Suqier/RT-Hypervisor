@@ -96,6 +96,7 @@ struct vm_area
     rt_list_t node;
     struct mm_struct *mm;    /* this area belongs to */
 };
+typedef struct vm_area *vm_area_t;
 
 struct mm_struct
 {

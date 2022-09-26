@@ -22,8 +22,6 @@
 #include "rtconfig.h"
 #include "vm.h"
 
-
-
 #ifdef RT_USING_NVHE
 #include "nvhe/nvhe.h"
 #else

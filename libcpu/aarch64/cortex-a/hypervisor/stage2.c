@@ -115,7 +115,7 @@ rt_inline void s2_set_pte(pte_t *pte_ptr, pte_t v) { WRITE_ONCE(*pte_ptr, v); }
  */
 static rt_bool_t s2_map_pmd_block(pmd_t *pmd_ptr, struct mem_desc *desc)
 {
-    if ((*pmd_ptr))
+    if (*pmd_ptr)
         return RT_FALSE;
 
     if ((desc->attr & MMU_TYPE_MASK) != MMU_TYPE_BLOCK)

@@ -16,44 +16,6 @@
 #include "vm.h"
 #include "virt_arch.h"
 
-const struct os_desc os_support[MAX_OS_TYPE] =
-{
-    {
-        .nr_vcpus = 1,
-        .mm_size = 8,  /* default MB */
-        .os_type = OS_TYPE_RT_THREAD,
-        /* for qemu */
-        /* ((void (*)(int))addr)(0); */
-        .entry_point = 0x40008000,
-        .os_addr = 0x45000000,
-        .os_img_size = 0x6A180,
-        .dtb_addr = RT_NULL,
-        .ramdisk_addr = RT_NULL
-    },
-    {
-        .nr_vcpus = 1,
-        .mm_size = 8,
-        .os_type = OS_TYPE_RT_THREAD,
-        /* for a55 */
-        .entry_point = 0x208000,
-        .os_addr = 0x208000,
-        .os_img_size = 0x1DC80,
-        .dtb_addr = RT_NULL,
-        .ramdisk_addr = RT_NULL
-    },
-    {
-        .nr_vcpus = 1,
-        .mm_size = 8,
-        .os_type = OS_TYPE_RT_ZEPHYR,
-        /* for qemu but zephyr */
-        .entry_point = 0x40000ffc,
-        .os_addr = 0x45000000,
-        .os_img_size = 0x5B844,
-        .dtb_addr = RT_NULL,
-        .ramdisk_addr = RT_NULL
-    }
-};
-
 const char* vm_status_str[VM_STATUS_UNKNOWN + 1] =
 {
     "offline", "online", "suspend", "never", "unknown"
@@ -67,7 +29,7 @@ const char* os_type_str[OS_TYPE_OTHER + 1] =
 /*
  * For vCPU
  */
-static void vcpu_init_spsr_modify(rt_ubase_t from)
+static void vcpu_spsr_init(rt_ubase_t from)
 {
     /* 
      * When creating vCPU thread, we'll using function rt_hw_stack_init() in 
@@ -99,7 +61,7 @@ vcpu_t vcpu_create(vm_t vm, rt_uint32_t vcpu_id)
 
 	rt_memset(name, 0, VM_NAME_SIZE);
 	sprintf(name, "m%d_c%d", vm->vm_idx, vcpu_id);
-	tid = rt_thread_create(name, (void *)(vm->os->entry_point), RT_NULL, 
+	tid = rt_thread_create(name, (void *)(vm->os->img.ep), RT_NULL, 
                         4096, FINSH_THREAD_PRIORITY + 1, THREAD_TIMESLICE);
 	if (tid == RT_NULL)
     {
@@ -116,7 +78,7 @@ vcpu_t vcpu_create(vm_t vm, rt_uint32_t vcpu_id)
     vm->vcpus[vcpu_id] = vcpu;
     rt_memset(arch, 0, sizeof(struct vcpu_arch));
     vcpu_state_init(vcpu);
-    vcpu_init_spsr_modify((rt_ubase_t)vcpu->tid->sp);
+    vcpu_spsr_init((rt_ubase_t)vcpu->tid->sp);
 
     if (vcpu_id)
         vm->vcpus[vcpu_id - 1]->next = vcpu;
@@ -209,14 +171,17 @@ void vcpu_shutdown(vcpu_t vcpu)
         rt_thread_delete(vcpu->tid);
     }
     else
+    {
         rt_kprintf("[Error] Shutdown %dth vCPU failure for %dth VM.\n", 
             vcpu->vcpu_id, vcpu->vm->vm_idx);
+    }
+    
+    vcpu->status = VCPU_STATUS_UNKNOWN; /* vCPU fault. */
 }
 
 void vcpu_fault(vcpu_t vcpu)
 {
     /* Report Error, dump vCPU register info and shutdown vCPU. */
-    vcpu->status = VCPU_STATUS_UNKNOWN; /* vCPU fault. */
     rt_kprintf("[Fault] %dth vCPU Fault for %dth VM.\n", 
             vcpu->vcpu_id, vcpu->vm->vm_idx);
     vcpu_regs_dump(vcpu);
@@ -228,10 +193,10 @@ void vcpu_fault(vcpu_t vcpu)
  */
 rt_err_t os_img_load(vm_t vm)		
 {
-    void *src = (void *)vm->os->os_addr;
-    rt_uint64_t dst_va = vm->os->entry_point;
+    void *src = (void *)vm->os->img.addr;
+    rt_uint64_t dst_va = vm->os->img.ep;
     rt_ubase_t dst_pa = 0x0UL;
-    rt_ubase_t count = vm->os->os_img_size, copy_size;
+    rt_ubase_t count = vm->os->img.size, copy_size;
     rt_err_t ret;
 
     do
@@ -268,9 +233,9 @@ void vm_config_init(vm_t vm, rt_uint8_t vm_idx)
     rt_hw_spin_lock_init(&vm->vm_lock);
 #endif
     
-    vm->mm->mem_size = vm->os->mm_size;
+    vm->mm->mem_size = vm->os->mem.size;
     vm->mm->mem_used = 0;
-    vm->nr_vcpus = vm->os->nr_vcpus;
+    vm->nr_vcpus = vm->os->cpu.num;
 }
 
 rt_err_t vm_init(vm_t vm)
@@ -301,6 +266,8 @@ rt_err_t vm_init(vm_t vm)
     if (ret)
         return ret;
     
+    vgic_init(vm->vgic, vm->os_idx);
+
     /* allocate memory for device. TBD */
     ret = os_img_load(vm);
     if (ret)
@@ -367,6 +334,8 @@ void vm_shutdown(vm_t vm)
 
 void vm_free(vm_t vm)
 {
+    vgic_free(vm->vgic);
+
     /* free vCPUs resource */
     for (rt_size_t i = 0; i < vm->nr_vcpus; i++)
         vcpu_free(vm->vcpus[i]);

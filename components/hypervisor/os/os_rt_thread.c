@@ -26,7 +26,7 @@ void rt_thread_vcpu_init(vcpu_t vcpu)
 
 }
     
-void rt_thread_vcpu_power_on(vcpu_t vcpu, rt_uint64_t entry_point)
+void rt_thread_vcpu_power_on(vcpu_t vcpu, rt_uint64_t ep)
 {
 
 }

@@ -11,8 +11,6 @@
 #ifndef __VM_H__
 #define __VM_H__
 
-#include <vgic.h>
-
 #include "mm.h"
 #include "os.h"
 
@@ -76,6 +74,7 @@ struct vm
     char name[VM_NAME_SIZE];
     struct mm_struct *mm;    /* userspace tied to this vm */
     const struct os_desc *os;
+    rt_uint8_t os_idx;
 
 #ifdef RT_USING_SMP
     rt_hw_spinlock_t vm_lock;
@@ -89,12 +88,12 @@ struct vm
     vcpu_t *vcpus;
 
     /* vGIC */
-    vgic_t vgic;
+    struct vgic *vgic;
 
     /* vTimer | TBD */
     
-    /* For vTTY and so on */
-    rt_list_t vdev_list;
+    /* For TTY and so on */
+    rt_list_t dev_list;
 }__attribute__((aligned(L1_CACHE_BYTES)));
 typedef struct vm *vm_t;
 

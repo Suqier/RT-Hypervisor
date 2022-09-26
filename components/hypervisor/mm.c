@@ -45,19 +45,16 @@ rt_err_t vm_mm_struct_init(struct mm_struct *mm)
     if (mm->pgd_tbl == RT_NULL)
         return -RT_ENOMEM;
     else
-        mm->pgd_tbl = (pud_t *)(MMU_TYPE_TABLE | ((rt_uint64_t)mm->pgd_tbl & TABLE_ADDR_MASK));
+        mm->pgd_tbl = (pud_t *)(MMU_TYPE_TABLE 
+                    | ((rt_uint64_t)mm->pgd_tbl & TABLE_ADDR_MASK));
     rt_kprintf("[Info] mm->pgd_tbl&attr=0x%08x\n", mm->pgd_tbl);
     /* 
      * TBD
      * We adjust ipa_start and ipa_end by getting OS img information.
      * Currently only supports a memory case.
      */
-    rt_uint64_t ipa_start;
-    if (vm->os->os_type == OS_TYPE_RT_ZEPHYR)
-        ipa_start = 0x40000000;
-    else
-        ipa_start = vm->os->entry_point - DEFAULT_CPU_STACK_SIZE;
-    rt_uint64_t ipa_end = ipa_start + BYTE(vm->os->mm_size);
+    rt_uint64_t ipa_start = vm->os->mem.addr;
+    rt_uint64_t ipa_end = ipa_start + BYTE(vm->os->mem.size);
     struct vm_area *va = vm_area_init(mm, ipa_start, ipa_end);
     if (!va)
         return -RT_ENOMEM;
@@ -88,8 +85,7 @@ mem_block_t *alloc_mem_block(void)
 rt_err_t alloc_vm_memory(struct mm_struct *mm)
 {
     vm_t vm = mm->vm;
-    struct vm_area *vma = 
-                rt_list_entry(mm->vm_area_used.next, struct vm_area, node);
+    vm_area_t vma = rt_list_entry(mm->vm_area_used.next, struct vm_area, node);
     rt_uint64_t va_start = vma->desc.vaddr_start;
     mem_block_t *mb;
 
@@ -116,8 +112,7 @@ rt_err_t alloc_vm_memory(struct mm_struct *mm)
         mm->mem_used += MEM_BLOCK_SIZE;
     }
 
-    rt_kprintf("[Info] Alloc %dMB memory for %dth VM\n", 
-                MB(mm->mem_used), vm->vm_idx);
+    rt_kprintf("[Info] Alloc %dMB memory for %dth VM\n", MB(mm->mem_used), vm->vm_idx);
     
     return RT_EOK;
 }
@@ -196,17 +191,16 @@ static rt_err_t map_vma_pt(struct mm_struct *mm, struct vm_area *vma)
  * In mm_struct, we use rt_list_t vm_area_used to manage vm_area, 
  * but we currently only supports a memory case.
  * So there is only 1 normal memory segment 
- * and many device memory srgment in this rt_list.
+ * and many device memory segment in this rt_list.
  */
 rt_err_t map_vm_memory(struct mm_struct *mm)
 {
     struct rt_list_node *pos;
-    struct vm_area *vma;
     rt_err_t ret = RT_EOK;
 
-    rt_list_for_each(pos, &(mm->vm_area_used))
+    rt_list_for_each(pos, &mm->vm_area_used)
     {
-        vma = rt_list_entry(pos, struct vm_area, node);
+        struct vm_area *vma = rt_list_entry(pos, struct vm_area, node);
 
         switch (vma->flag & VM_MAP_TYPE_MASK)
         {

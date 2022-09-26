@@ -8,18 +8,21 @@
  * 2022-09-02     Suqier       first version
  */
 
+#include <rthw.h>
+
 #include "switch.h"
 #include "virt_arch.h"
+#include "vm.h"
 
-rt_bool_t is_vcpu_thread(rt_thread_t thread)
+rt_bool_t is_vcpu_thread(rt_thread_t tid)
 {
-    return thread->vcpu != RT_NULL;
+    return tid->vcpu != RT_NULL;
 }
 
-rt_uint8_t vcpu_thread_vm_idx(rt_thread_t thread)
+rt_uint8_t vcpu_thread_vm_idx(rt_thread_t tid)
 {
-    RT_ASSERT(is_vcpu_thread(thread));
-    return thread->vcpu->vm->vm_idx;
+    RT_ASSERT(is_vcpu_thread(tid));
+    return tid->vcpu->vm->vm_idx;
 }
 
 rt_bool_t is_vcpu_threads_same_vm(rt_thread_t from, rt_thread_t to)
