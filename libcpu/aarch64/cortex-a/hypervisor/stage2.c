@@ -278,7 +278,7 @@ rt_err_t s2_map(struct mm_struct *mm, struct mem_desc *desc)
     RT_ASSERT((desc->vaddr_start < S2_IPA_SIZE) && (desc->vaddr_end < S2_IPA_SIZE));
     RT_ASSERT(IS_2M_ALIGN(desc->vaddr_start) && IS_2M_ALIGN(desc->vaddr_end));
 
-    rt_uint8_t vm_idx = mm->vm->vm_idx;
+    rt_uint8_t vm_idx = mm->vm->id;
     pud_t pud_val = (pud_t)mm->pgd_tbl & TABLE_ADDR_MASK;   /* [47:12] */
     return s2_map_pud((pud_t *)pud_val, desc, vm_idx);
 }
@@ -353,12 +353,12 @@ static void s2_unmap_pud(struct mm_struct *mm, rt_ubase_t va, rt_ubase_t va_end)
         if (*pud_ptr)
         {
             pmd_tbl = (pmd_t *)(*pud_ptr & TABLE_ADDR_MASK);
-            s2_unmap_pmd(mm->vm->vm_idx, pmd_tbl, va, next);
+            s2_unmap_pmd(mm->vm->id, pmd_tbl, va, next);
             if (((va & ~S2_PUD_MASK) == 0) && ((va_end - va) == S2_PUD_SIZE))
             {
                 s2_clear_pud(pud_ptr);
                 rt_free(pud_ptr);    /* Heap memory. */ 
-                clear_s2_mmu_page(mm->vm->vm_idx , pmd_tbl);    /* S2_MMUPage_Group. */
+                clear_s2_mmu_page(mm->vm->id , pmd_tbl);    /* S2_MMUPage_Group. */
             }
         }
     } while (pud_ptr++, va = next, va != va_end);

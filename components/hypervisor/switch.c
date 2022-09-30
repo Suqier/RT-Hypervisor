@@ -22,7 +22,7 @@ rt_bool_t is_vcpu_thread(rt_thread_t tid)
 rt_uint8_t vcpu_thread_vm_idx(rt_thread_t tid)
 {
     RT_ASSERT(is_vcpu_thread(tid));
-    return tid->vcpu->vm->vm_idx;
+    return tid->vcpu->vm->id;
 }
 
 rt_bool_t is_vcpu_threads_same_vm(rt_thread_t from, rt_thread_t to)

@@ -45,9 +45,10 @@ enum
 
 struct vcpu
 {
-    rt_uint32_t vcpu_id;
+    rt_uint32_t id;
+    rt_uint32_t affinity;
     rt_uint16_t status;
-    
+
     struct vm *vm;
     struct vcpu *next;
     rt_thread_t tid;
@@ -68,7 +69,7 @@ enum
 struct vm
 {
     int vmid;
-    rt_uint8_t vm_idx;     /* index in hypervisor vms array */ 
+    rt_uint8_t id;     /* index in hypervisor vms array */ 
     rt_uint16_t status;
     
     char name[VM_NAME_SIZE];

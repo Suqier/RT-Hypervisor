@@ -38,7 +38,7 @@ void rt_hypervisor_el2_setup(void)
 	SET_SYS_REG(SCTLR_EL2, val);
 
 	GET_SYS_REG(HCR_EL2, val);
-	val |= HCR_HOST_VHE_FLAGS;
+	val |= HCR_HOST_NVHE_FLAGS;
 	SET_SYS_REG(HCR_EL2, val);
 
 	val = 0UL;

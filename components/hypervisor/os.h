@@ -44,7 +44,7 @@ struct img_info
 
 struct cpu_info
 {
-    rt_uint64_t affinity;
+    rt_uint32_t affinity[MAX_VCPU_NUM];
     rt_uint8_t  num;
 };
 

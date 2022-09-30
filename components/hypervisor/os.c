@@ -13,23 +13,31 @@
 const struct os_desc os_img[MAX_OS_NUM] =
 {
     {   /* for QEMU */
-        .img = {
+        .img = 
+        {
             .addr = 0x45000000,
             .size = 0x6A180,
             .ep   = 0x40008000,
             .type = OS_TYPE_RT_THREAD,
         },
-        .cpu = {
-            .affinity = 0x0,    /* for SMP, not use now */
+        .cpu = 
+        {
+            .affinity = /* for SMP, not use now */
+            {
+                0x0,
+            },
             .num = 1,
         },
-        .mem = {
+        .mem = 
+        {
             .addr = 0x40000000,
             .size = 8,          /* default MB */
         },
-        .devs = {
+        .devs = 
+        {
             .num = 1,
-            .dev = (struct dev_info[]) {
+            .dev = (struct dev_info[]) 
+            {
                 {   /* QEMU UART0 */
                     .paddr = 0x09000000,  /* PL011_UART0_BASE */
                     .vaddr = 0x09000000,  /* flat mapping */
@@ -39,8 +47,10 @@ const struct os_desc os_img[MAX_OS_NUM] =
                 },
             },
         },
-        .arch = {
-            .vgic = {
+        .arch = 
+        {
+            .vgic = 
+            {
                 .gicd_addr = 0x08000000,
                 .gicr_addr = 0x080a0000,
             },
@@ -48,23 +58,31 @@ const struct os_desc os_img[MAX_OS_NUM] =
     },
     /* <-------------------------------------------------------------------> */
     {   /* for Cortex-A55 */
-        .img = {
+        .img = 
+        {
             .addr = 0x00208000,
             .size = 0x1DC80,
             .ep   = 0x00208000,
             .type = OS_TYPE_RT_THREAD,
         },
-        .cpu = {
-            .affinity = 0x0,    /* for SMP, not use now */
+        .cpu = 
+        {
+            .affinity =    /* for SMP, not use now */
+            {
+                0x0
+            },
             .num = 1,
         },
-        .mem = {
+        .mem = 
+        {
             .addr = 0x40000000,
             .size = 8,          /* default MB */
         },
-        .devs = {
+        .devs = 
+        {
             .num = 1,
-            .dev = (struct dev_info[]) {
+            .dev = (struct dev_info[]) 
+            {
                 {   /* RK3568 UART2 */
                     .paddr = 0xFE650000 + 0x10000,
                     .vaddr = 0xFE650000 + 0x10000,
@@ -74,8 +92,10 @@ const struct os_desc os_img[MAX_OS_NUM] =
                 },
             },
         },
-        .arch = {
-            .vgic = {
+        .arch = 
+        {
+            .vgic = 
+            {
                 .gicd_addr = 0xfd400000,
                 .gicr_addr = 0xfd460000,
             },

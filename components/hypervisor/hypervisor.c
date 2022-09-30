@@ -575,7 +575,7 @@ void list_vm(void)
             else
                 fmt = "%-*.*s %6.3d %-8.s %-10s %4.1d %8d\n";
             
-            rt_kprintf(fmt, maxlen, VM_NAME_SIZE, vm->name, vm->vm_idx,
+            rt_kprintf(fmt, maxlen, VM_NAME_SIZE, vm->name, vm->id,
                     vm_status_str[vm->status], os_type_str[vm->os->img.type],
                     vm->os->cpu.num, vm->mm->mem_size);
         }

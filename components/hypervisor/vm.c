@@ -60,7 +60,7 @@ vcpu_t vcpu_create(vm_t vm, rt_uint32_t vcpu_id)
     }
 
 	rt_memset(name, 0, VM_NAME_SIZE);
-	sprintf(name, "m%d_c%d", vm->vm_idx, vcpu_id);
+	sprintf(name, "m%d_c%d", vm->id, vcpu_id);
 	tid = rt_thread_create(name, (void *)(vm->os->img.ep), RT_NULL, 
                         4096, FINSH_THREAD_PRIORITY + 1, THREAD_TIMESLICE);
 	if (tid == RT_NULL)
@@ -69,11 +69,12 @@ vcpu_t vcpu_create(vm_t vm, rt_uint32_t vcpu_id)
 		return RT_NULL;
     }
 
+    vcpu->affinity = vm->os[vm->os_idx].cpu.affinity[vcpu_id];    /* affinity */
     vcpu->arch = arch;
     vcpu->status = VCPU_STATUS_NEVER_RUN;
     tid->vcpu = vcpu;
     vcpu->tid = tid;
-    vcpu->vcpu_id = vcpu_id;
+    vcpu->id = vcpu_id;
     vcpu->vm = vm;
     vm->vcpus[vcpu_id] = vcpu;
     rt_memset(arch, 0, sizeof(struct vcpu_arch));
@@ -117,13 +118,13 @@ rt_err_t vcpus_create(vm_t vm)
             }
 
             rt_kprintf("[Error] Create %dth vCPU failure for %dth VM.\n", 
-                    i, vm->vm_idx);
+                    i, vm->id);
             return -RT_ENOMEM;
         }
     }
 
     rt_kprintf("[Info] Create %d vCPUs success for %dth VM.\n", 
-                        vm->nr_vcpus, vm->vm_idx);
+                        vm->nr_vcpus, vm->id);
     return RT_EOK;
 }
 
@@ -136,14 +137,14 @@ void vcpu_go(vcpu_t vcpu)
     }
     else
         rt_kprintf("[Error] Run %dth vCPU failure for %dth VM.\n", 
-                vcpu->vcpu_id, vcpu->vm->vm_idx);
+                vcpu->id, vcpu->vm->id);
 }
 
 void vcpu_suspend(vcpu_t vcpu)
 {
     /* Turn vcpu->thread into RT_THREAD_SUSPEND status. */
     rt_kprintf("[Info] Suspend %dth vCPU now for %dth VM.\n", 
-            vcpu->vcpu_id, vcpu->vm->vm_idx);
+            vcpu->id, vcpu->vm->id);
     if (vcpu->status == VCPU_STATUS_ONLINE)
     {
         vcpu->status = VCPU_STATUS_SUSPEND;
@@ -151,14 +152,14 @@ void vcpu_suspend(vcpu_t vcpu)
     }
     else
         rt_kprintf("[Error] Suspend %dth vCPU failure for %dth VM.\n", 
-                vcpu->vcpu_id, vcpu->vm->vm_idx);
+                vcpu->id, vcpu->vm->id);
 }
 
 void vcpu_shutdown(vcpu_t vcpu)
 {
     /* Turn vcpu->thread into RT_THREAD_CLOSE status and free vCPU resource. */
     rt_kprintf("[Info] Shutdown %dth vCPU now for %dth VM.\n", 
-            vcpu->vcpu_id, vcpu->vm->vm_idx);
+            vcpu->id, vcpu->vm->id);
     if (vcpu->status == VCPU_STATUS_ONLINE)
     {
         vcpu->status = VCPU_STATUS_OFFLINE;
@@ -173,7 +174,7 @@ void vcpu_shutdown(vcpu_t vcpu)
     else
     {
         rt_kprintf("[Error] Shutdown %dth vCPU failure for %dth VM.\n", 
-            vcpu->vcpu_id, vcpu->vm->vm_idx);
+            vcpu->id, vcpu->vm->id);
     }
     
     vcpu->status = VCPU_STATUS_UNKNOWN; /* vCPU fault. */
@@ -183,7 +184,7 @@ void vcpu_fault(vcpu_t vcpu)
 {
     /* Report Error, dump vCPU register info and shutdown vCPU. */
     rt_kprintf("[Fault] %dth vCPU Fault for %dth VM.\n", 
-            vcpu->vcpu_id, vcpu->vm->vm_idx);
+            vcpu->id, vcpu->vm->id);
     vcpu_regs_dump(vcpu);
     vcpu_shutdown(vcpu);
 }
@@ -225,7 +226,7 @@ rt_err_t os_img_load(vm_t vm)
 
 void vm_config_init(vm_t vm, rt_uint8_t vm_idx)
 {
-    vm->vm_idx = vm_idx;
+    vm->id = vm_idx;
     rt_kprintf("[Info] Allocate VM id is %03d\n", vm_idx);
     vm->status = VM_STATUS_NEVER_RUN;
 
@@ -284,7 +285,7 @@ void vm_go(vm_t vm)
     if (vcpu)
         vcpu_go(vcpu);
     else
-        rt_kprintf("[Error] Start %dth VM failure.\n", vm->vm_idx);
+        rt_kprintf("[Error] Start %dth VM failure.\n", vm->id);
 }
 
 void vm_suspend(struct vm * vm)

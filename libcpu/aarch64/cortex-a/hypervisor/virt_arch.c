@@ -56,7 +56,7 @@ void flush_vm_all_tlb(vm_t vm)
 {
     struct mm_struct *mm = vm->mm;
     rt_uint64_t vttbr = ((rt_uint64_t)mm->pgd_tbl & S2_VA_MASK) 
-                      | ((rt_uint64_t)vm->vm_idx << VMID_SHIFT);
+                      | ((rt_uint64_t)vm->id << VMID_SHIFT);
 
     rt_uint64_t old_vttbr; 
     GET_SYS_REG(VTTBR_EL2, old_vttbr);
@@ -87,7 +87,7 @@ void vcpu_state_init(struct vcpu *vcpu)
     vcpu->arch->hcr_el2 = HCR_GUEST_FLAGS;
     rt_kprintf("[Info] HCR_EL2 val = 0x%08x\n", vcpu->arch->hcr_el2);
 
-    c->sys_regs[_MPIDR_EL1]   = vcpu->vcpu_id;  /* set this value to VMPIDR_EL2 */
+    c->sys_regs[_MPIDR_EL1]   = vcpu->id;  /* set this value to VMPIDR_EL2 */
     c->sys_regs[_MIDR_EL1]    = 0x410FC050;     /* set this value to VMIDR_EL2 */
     c->sys_regs[_CPACR_EL1]   = CPACR_EL1_FPEN;
     c->sys_regs[_TTBR0_EL1]   = 0UL;
@@ -102,7 +102,7 @@ void vcpu_state_init(struct vcpu *vcpu)
 
     vm->arch->vtcr_el2  = get_vtcr_el2();
     vm->arch->vttbr_el2 = ((rt_uint64_t)vm->mm->pgd_tbl & S2_VA_MASK) 
-                        | ((rt_uint64_t)vm->vm_idx     << VMID_SHIFT);
+                        | ((rt_uint64_t)vm->id     << VMID_SHIFT);
 }
 
 /* Dump vCPU register info */
@@ -260,7 +260,7 @@ static void deactivate_trap(struct vcpu *vcpu)
 {
     rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
 
-    SET_SYS_REG(HCR_EL2, HCR_HOST_VHE_FLAGS);
+    SET_SYS_REG(HCR_EL2, HCR_HOST_NVHE_FLAGS);
     SET_SYS_REG(CPACR_EL1, CPACR_EL1_DEFAULT);
 }
 

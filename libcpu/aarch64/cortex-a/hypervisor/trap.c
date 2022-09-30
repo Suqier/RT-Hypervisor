@@ -189,6 +189,7 @@ void rt_hw_handle_low_sync(struct rt_hw_exp_stack *regs)
     rt_kprintf("[Info]   HCR_EL2 = 0x%08x\n", reg_val);
     GET_SYS_REG(FAR_EL2, reg_val);
     rt_kprintf("[Info]   FAR_EL2 = 0x%08x\n", reg_val);
+    /*
     GET_SYS_REG(HPFAR_EL2, reg_val);
     rt_kprintf("[Info] HPFAR_EL2 = 0x%08x\n", reg_val);
     GET_SYS_REG(VTTBR_EL2, reg_val);
@@ -197,6 +198,7 @@ void rt_hw_handle_low_sync(struct rt_hw_exp_stack *regs)
     rt_kprintf("[Info]  SPSR_EL2 = 0x%08x\n", reg_val);    
     GET_SYS_REG(ELR_EL2, reg_val);
     rt_kprintf("[Info]   ELR_EL2 = 0x%08x\n", reg_val);
+    */
 
     desc = low_sync_table[ec_type];
     regs->pc += desc->pc_offset;
