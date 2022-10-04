@@ -23,7 +23,7 @@
  * IMO:		Override CPSR.I and enable signaling with VI
  * FMO:		Override CPSR.F and enable signaling with VF
  */
-#define HCR_GUEST_FLAGS 	(HCR_TSC | HCR_IMO | HCR_FMO | HCR_VM | HCR_RW)
+#define HCR_GUEST_FLAGS 	(HCR_TSC | HCR_TWI | HCR_IMO | HCR_FMO | HCR_VM | HCR_RW)
 #define HCR_VIRT_EXCP_MASK 	(HCR_VSE | HCR_VI  | HCR_VF)
 #define HCR_HOST_NVHE_FLAGS (HCR_RW  | HCR_TGE)
 

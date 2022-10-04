@@ -81,6 +81,7 @@ static rt_uint64_t hvc_trap_call(rt_uint32_t fn, rt_uint64_t arg0,
 void ec_unknown_handler(struct rt_hw_exp_stack *regs, rt_uint32_t esr)
 {
     rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
+    while (1) {}
 }RT_INSTALL_SYNC_DESC(ec_unknown, ec_unknown_handler, 4);
 
 /* for ESR_EC_WFX */
@@ -88,18 +89,21 @@ void ec_wfx_handler(struct rt_hw_exp_stack *regs, rt_uint32_t esr)
 {
     /* vcpu turn to idle */
     rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
+    while (1) {}
 }RT_INSTALL_SYNC_DESC(ec_wfx, ec_wfx_handler, 4);
 
 /* for ESR_EC_HVC64 */
 void ec_hvc64_handler(struct rt_hw_exp_stack *regs, rt_uint32_t esr)
 {
     rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
+    while (1) {}
 }RT_INSTALL_SYNC_DESC(ec_hvc64, ec_hvc64_handler, 0);
 
 /* for ESR_EC_SYS64 */
 void ec_sys64_handler(struct rt_hw_exp_stack *regs, rt_uint32_t esr)
 {
     rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
+    while (1) {}
 }RT_INSTALL_SYNC_DESC(ec_sys64, ec_sys64_handler, 4);
 
 /* for ESR_EC_IABT_LOW */
@@ -189,6 +193,8 @@ void rt_hw_handle_low_sync(struct rt_hw_exp_stack *regs)
     rt_kprintf("[Info]   HCR_EL2 = 0x%08x\n", reg_val);
     GET_SYS_REG(FAR_EL2, reg_val);
     rt_kprintf("[Info]   FAR_EL2 = 0x%08x\n", reg_val);
+    GET_SYS_REG(CNTHCTL_EL2, reg_val);
+    rt_kprintf("[Info]CNTHCTL_EL2= 0x%08x\n", reg_val);
     /*
     GET_SYS_REG(HPFAR_EL2, reg_val);
     rt_kprintf("[Info] HPFAR_EL2 = 0x%08x\n", reg_val);
@@ -215,4 +221,5 @@ void rt_hw_trap_sync(struct rt_hw_exp_stack *regs)
         rt_hw_handle_curr_sync(regs);
     else                        /* HCR_EL2.TGE = 0 -> Guest OS */
         rt_hw_handle_low_sync(regs);
+    rt_kprintf("[Info] %s, over.\n", __FUNCTION__);
 }

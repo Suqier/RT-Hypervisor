@@ -80,7 +80,7 @@ static int uart_putc(struct rt_serial_device *serial, char c)
     {
     }
 
-    writel(c, (volatile void *)( uart->hw_base + PL011_UARTDR));
+    writel(c, (volatile void *)(uart->hw_base + PL011_UARTDR));
 
     return 1;
 }

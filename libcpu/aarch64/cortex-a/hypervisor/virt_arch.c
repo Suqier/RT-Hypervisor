@@ -258,16 +258,12 @@ static void hook_vcpu_save_regs(struct vcpu *vcpu)
 
 static void deactivate_trap(struct vcpu *vcpu)
 {
-    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
-
     SET_SYS_REG(HCR_EL2, HCR_HOST_NVHE_FLAGS);
     SET_SYS_REG(CPACR_EL1, CPACR_EL1_DEFAULT);
 }
 
 static void save_stage2_setting(struct vcpu *vcpu)
 {
-    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
-
     GET_SYS_REG(VTCR_EL2,  vcpu->vm->arch->vtcr_el2);
     GET_SYS_REG(VTTBR_EL2, vcpu->vm->arch->vttbr_el2);
     __ISB();
@@ -279,8 +275,6 @@ static void save_stage2_setting(struct vcpu *vcpu)
  */
 void host_to_guest_arch_handler(struct vcpu *vcpu)
 {
-    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
-
     /* EL1 regs & */
     hook_vcpu_load_regs(vcpu);
     activate_trap(vcpu);
@@ -293,8 +287,6 @@ void host_to_guest_arch_handler(struct vcpu *vcpu)
  */
 void guest_to_host_arch_handler(struct vcpu *vcpu)
 {
-    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
-
     save_stage2_setting(vcpu);
     deactivate_trap(vcpu);
     hook_vcpu_save_regs(vcpu);

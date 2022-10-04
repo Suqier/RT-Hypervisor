@@ -30,7 +30,7 @@ extern const struct os_desc os_img[MAX_OS_NUM];
 extern const char* vm_status_str[VM_STATUS_UNKNOWN + 1];
 extern const char* os_type_str[OS_TYPE_OTHER + 1];
 
-static struct hypervisor rt_hyp;
+struct hypervisor rt_hyp;
 
 int rt_hyp_init(void)
 {
@@ -52,6 +52,8 @@ int rt_hyp_init(void)
         rt_hyp.arch.cpu_hyp_enabled[i] = RT_FALSE;
 
     rt_hyp.arch.hyp_init_ok = RT_FALSE;
+
+    rt_hyp.curr_vc_idx = MAX_VM_NUM;    /* MAX_VM_NUM == Host using UART */
 
     rt_kprintf("[Info] RT_H: rt_hyp init OK.\n");
     return RT_EOK;

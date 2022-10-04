@@ -52,8 +52,12 @@ struct hypervisor
     rt_uint8_t total_vm;
     vm_t vms[MAX_VM_NUM];
 
+    rt_uint8_t curr_vc_idx;
+
     struct hyp_arch arch;
 };
+
+extern struct hypervisor rt_hyp;
 
 rt_err_t rt_hypervisor_init(void);
 

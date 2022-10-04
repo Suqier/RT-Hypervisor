@@ -237,6 +237,7 @@ void vm_config_init(vm_t vm, rt_uint8_t vm_idx)
     vm->mm->mem_size = vm->os->mem.size;
     vm->mm->mem_used = 0;
     vm->nr_vcpus = vm->os->cpu.num;
+    rt_list_init(&vm->dev_list);
 }
 
 rt_err_t vm_init(vm_t vm)
@@ -268,7 +269,9 @@ rt_err_t vm_init(vm_t vm)
         return ret;
     
     vgic_init(vm->vgic, vm->os_idx);
-
+    
+    vc_create(vm);
+    
     /* allocate memory for device. TBD */
     ret = os_img_load(vm);
     if (ret)

@@ -13,6 +13,7 @@
 
 #include "mm.h"
 #include "os.h"
+#include "vconsole.h"
 
 #define THREAD_TIMESLICE    5
 
