@@ -47,7 +47,7 @@ rt_err_t vm_mm_struct_init(struct mm_struct *mm)
     else
         mm->pgd_tbl = (pud_t *)(MMU_TYPE_TABLE 
                     | ((rt_uint64_t)mm->pgd_tbl & TABLE_ADDR_MASK));
-    rt_kprintf("[Info] mm->pgd_tbl&attr=0x%08x\n", mm->pgd_tbl);
+    // rt_kprintf("[Info] mm->pgd_tbl&attr=0x%08x\n", mm->pgd_tbl);
     /* 
      * TBD
      * We adjust ipa_start and ipa_end by getting OS img information.

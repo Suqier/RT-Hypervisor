@@ -16,7 +16,7 @@ const struct os_desc os_img[MAX_OS_NUM] =
         .img = 
         {
             .addr = 0x45000000,
-            .size = 0x6A180,
+            .size = 0x29CD0,
             .ep   = 0x40008000,
             .type = OS_TYPE_RT_THREAD,
         },
@@ -52,7 +52,7 @@ const struct os_desc os_img[MAX_OS_NUM] =
             .vgic = 
             {
                 .gicd_addr = 0x08000000,
-                .gicr_addr = 0x080a0000,
+                .gicr_addr = 0x080A0000,
             },
         },
     },

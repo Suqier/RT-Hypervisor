@@ -557,12 +557,12 @@ void list_vm(void)
 
     /*
      *  msh >list_vm
-     *  vm name          vm_idx status       OS     vcpu  mem(M)
+     *  vm name           vm id status       OS     vcpu  mem(M)
      *  ---------------- ------ -------- ---------- ---- -------
      *  linux_test_1        001 offline  Linux         4      64
      *  Zephyr_test         002 never    Zephyr        1      64
      */
-    rt_kprintf("%-*.s vm_idx status   OS type    vcpu  mem(M)\n", 
+    rt_kprintf("%-*.s  vm id status   OS type    vcpu  mem(M)\n", 
             maxlen, item_title);
     object_split(maxlen);
     rt_kprintf(" ------ -------- ---------- ---- --------\n");

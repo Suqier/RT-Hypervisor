@@ -182,7 +182,8 @@ static rt_err_t s2_map_pmd(pmd_t *pmd_tbl, struct mem_desc *desc, rt_uint8_t vm_
         {
             /* map 2M memory */
             pmd_t block_val = desc->attr | (desc->paddr_start & L2_BLOCK_OA_MASK);
-            rt_kprintf("[Info] S2 map 2M pa&attr=0x%08x at pmd_ptr=0x%08x\n", block_val, pmd_ptr);
+            rt_kprintf("[Info] S2 map 2M pa&attr=0x%08x at pmd_ptr=0x%08x, va=0x%08x\n", 
+                    block_val, pmd_ptr, desc->vaddr_start);
             s2_set_pmd(pmd_ptr, block_val);
         }
         else

@@ -54,18 +54,6 @@ rt_hw_get_gtimer_val:
     MRS X0, CNTHP_TVAL_EL2
     RET
 
-.globl rt_hw_get_cntpct_val
-rt_hw_get_cntpct_val:
-    MRS X0, CNTPCT_EL0
-    RET
-
-/*
- * get gtimer frq value
- */
-.globl rt_hw_get_gtimer_frq
-rt_hw_get_gtimer_frq:
-    MRS X0, CNTFRQ_EL0
-    RET
 #else
 /*
  * enable gtimer
@@ -99,11 +87,7 @@ rt_hw_set_gtimer_val:
 rt_hw_get_gtimer_val:
     MRS X0, CNTP_TVAL_EL0
     RET
-
-.globl rt_hw_get_cntpct_val
-rt_hw_get_cntpct_val:
-    MRS X0, CNTPCT_EL0
-    RET
+#endif
 
 /*
  * get gtimer frq value
@@ -112,7 +96,11 @@ rt_hw_get_cntpct_val:
 rt_hw_get_gtimer_frq:
     MRS X0, CNTFRQ_EL0
     RET
-#endif
+
+.globl rt_hw_get_cntpct_val
+rt_hw_get_cntpct_val:
+    MRS X0, CNTPCT_EL0
+    RET
 
 /*
  * set gtimer frq value (only in EL3)

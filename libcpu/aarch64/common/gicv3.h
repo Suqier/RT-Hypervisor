@@ -55,6 +55,40 @@ extern rt_uint64_t rt_cpu_mpidr_early[];
 #define ICC_SGI1R_EL1   "S3_0_C12_C11_5"
 #define ICC_ASGI1R_EL1  "S3_0_C12_C11_6"
 
+#define ICH_AP0R0_EL2   "S3_4_C12_C8_0"
+#define ICH_AP0R1_EL2   "S3_4_C12_C8_1"
+#define ICH_AP0R2_EL2   "S3_4_C12_C8_2"
+#define ICH_AP0R3_EL2   "S3_4_C12_C8_3"
+
+#define ICH_AP1R0_EL2   "S3_4_C12_C9_0"
+#define ICH_AP1R1_EL2   "S3_4_C12_C9_1"
+#define ICH_AP1R2_EL2   "S3_4_C12_C9_2"
+#define ICH_AP1R3_EL2   "S3_4_C12_C9_3"
+
+#define ICH_HCR_EL2     "S3_4_C12_C11_0"
+#define ICH_VTR_EL2     "S3_4_C12_C11_1"
+#define ICH_MISR_EL2    "S3_4_C12_C11_2"
+#define ICH_EISR_EL2    "S3_4_C12_C11_3"
+#define ICH_ELRSR_EL2   "S3_4_C12_C11_5"
+#define ICH_VMCR_EL2    "S3_4_C12_C11_7"
+
+#define ICH_LR0_EL2     "S3_4_C12_C12_0"
+#define ICH_LR1_EL2     "S3_4_C12_C12_1"
+#define ICH_LR2_EL2     "S3_4_C12_C12_2"
+#define ICH_LR3_EL2     "S3_4_C12_C12_3"
+#define ICH_LR4_EL2     "S3_4_C12_C12_4"
+#define ICH_LR5_EL2     "S3_4_C12_C12_5"
+#define ICH_LR6_EL2     "S3_4_C12_C12_6"
+#define ICH_LR7_EL2     "S3_4_C12_C12_7"
+#define ICH_LR8_EL2     "S3_4_C12_C13_0"
+#define ICH_LR9_EL2     "S3_4_C12_C13_1"
+#define ICH_LR10_EL2    "S3_4_C12_C13_2"
+#define ICH_LR11_EL2    "S3_4_C12_C13_3"
+#define ICH_LR12_EL2    "S3_4_C12_C13_4"
+#define ICH_LR13_EL2    "S3_4_C12_C13_5"
+#define ICH_LR14_EL2    "S3_4_C12_C13_6"
+#define ICH_LR15_EL2    "S3_4_C12_C13_7"
+
 /* Macro to access the Distributor Control Register (GICD_CTLR) */
 #define GICD_CTLR_RWP       (1 << 31)
 #define GICD_CTLR_E1NWF     (1 << 7)

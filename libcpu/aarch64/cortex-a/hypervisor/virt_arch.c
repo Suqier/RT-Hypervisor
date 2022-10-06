@@ -84,8 +84,7 @@ void vcpu_state_init(struct vcpu *vcpu)
     vm_t vm = vcpu->vm;
     struct cpu_context *c = &vcpu->arch->vcpu_ctxt;
     
-    vcpu->arch->hcr_el2 = HCR_GUEST_FLAGS;
-    rt_kprintf("[Info] HCR_EL2 val = 0x%08x\n", vcpu->arch->hcr_el2);
+    vcpu->arch->hcr_el2 = HCR_GUEST_FLAGS | HCR_GUEST_XMO_FLAGS;
 
     c->sys_regs[_MPIDR_EL1]   = vcpu->id;  /* set this value to VMPIDR_EL2 */
     c->sys_regs[_MIDR_EL1]    = 0x410FC050;     /* set this value to VMIDR_EL2 */
@@ -139,7 +138,7 @@ void vcpu_regs_dump(struct vcpu *vcpu)
 /* 
  * When vCPU sche in 
  */
-static void hook_vcpu_load_regs(struct vcpu *vcpu)
+static void hook_vcpu_regs_restore(struct vcpu *vcpu)
 {
     /* EL1 state restore */
     struct cpu_context *c = &vcpu->arch->vcpu_ctxt;
@@ -211,7 +210,7 @@ static void load_stage2_setting(struct vcpu *vcpu)
 /*
  * When vCPU sche out 
  */
-static void hook_vcpu_save_regs(struct vcpu *vcpu)
+static void hook_vcpu_regs_save(struct vcpu *vcpu)
 {
     /* EL1 state restore */
     struct cpu_context *c = &vcpu->arch->vcpu_ctxt;
@@ -276,9 +275,10 @@ static void save_stage2_setting(struct vcpu *vcpu)
 void host_to_guest_arch_handler(struct vcpu *vcpu)
 {
     /* EL1 regs & */
-    hook_vcpu_load_regs(vcpu);
+    hook_vcpu_regs_restore(vcpu);
     activate_trap(vcpu);
     load_stage2_setting(vcpu);  // interrupts disabled ?
+    hook_vgic_context_restore(vcpu->vm->vgic);
 }
 
 /*
@@ -289,7 +289,8 @@ void guest_to_host_arch_handler(struct vcpu *vcpu)
 {
     save_stage2_setting(vcpu);
     deactivate_trap(vcpu);
-    hook_vcpu_save_regs(vcpu);
+    hook_vcpu_regs_save(vcpu);
+    hook_vgic_context_save(vcpu->vm->vgic);
 }
 
 /* 

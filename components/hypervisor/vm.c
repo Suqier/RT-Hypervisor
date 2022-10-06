@@ -123,7 +123,7 @@ rt_err_t vcpus_create(vm_t vm)
         }
     }
 
-    rt_kprintf("[Info] Create %d vCPUs success for %dth VM.\n", 
+    rt_kprintf("[Info] Create %d vCPUs success for %dth VM\n", 
                         vm->nr_vcpus, vm->id);
     return RT_EOK;
 }
@@ -215,7 +215,7 @@ rt_err_t os_img_load(vm_t vm)
             copy_size = count;
 
         rt_memcpy((void *)dst_pa, (const void *)src, copy_size);
-        rt_kprintf("[Debug] memcpy src: 0x%08x to dst: 0x%08x\n", src, dst_pa);
+        // rt_kprintf("[Debug] memcpy src: 0x%08x to dst: 0x%08x\n", src, dst_pa);
         count -= copy_size;
         dst_va += copy_size;
     } while (count > 0);

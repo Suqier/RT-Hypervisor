@@ -41,6 +41,10 @@ void rt_hypervisor_el2_setup(void)
 	val |= HCR_HOST_NVHE_FLAGS;
 	SET_SYS_REG(HCR_EL2, val);
 
+	GET_SYS_REG(CNTHCTL_EL2, val);
+	val = 1UL;
+	SET_SYS_REG(CNTHCTL_EL2, val);
+
 	val = 0UL;
 	val &= ~(CPTR_EL2_TAM);
 	val |= CPTR_EL2_FPEN;
