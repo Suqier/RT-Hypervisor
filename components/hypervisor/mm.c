@@ -10,6 +10,7 @@
 
 #include <rtdef.h>
 
+#include "os.h"
 #include "mm.h"
 
 extern void *alloc_vm_pgd(rt_uint8_t vm_idx);

@@ -14,7 +14,9 @@
 #include <string.h>
 
 #include "vm.h"
+#include "os.h"
 #include "virt_arch.h"
+#include "vtimer.h"
 
 const char* vm_status_str[VM_STATUS_UNKNOWN + 1] =
 {
@@ -77,6 +79,8 @@ vcpu_t vcpu_create(vm_t vm, rt_uint32_t vcpu_id)
     vcpu->id = vcpu_id;
     vcpu->vm = vm;
     vm->vcpus[vcpu_id] = vcpu;
+    
+    vtimer_ctxt_create(vcpu);
     rt_memset(arch, 0, sizeof(struct vcpu_arch));
     vcpu_state_init(vcpu);
     vcpu_spsr_init((rt_ubase_t)vcpu->tid->sp);

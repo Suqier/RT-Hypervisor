@@ -96,8 +96,8 @@ const struct os_desc os_img[MAX_OS_NUM] =
         {
             .vgic = 
             {
-                .gicd_addr = 0xfd400000,
-                .gicr_addr = 0xfd460000,
+                .gicd_addr = 0xFD400000,
+                .gicr_addr = 0xFD460000,
             },
         },
     },

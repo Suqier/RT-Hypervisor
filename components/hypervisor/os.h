@@ -14,6 +14,9 @@
 #include <rtdef.h>
 
 #include "virt_arch.h"
+#include "vm.h"
+
+#define MAX_VCPU_NUM    4      /* per vm */
 
 enum
 {

@@ -16,7 +16,6 @@ void bitmap_init(rt_uint32_t *bitmap)
 	/* 
 	 * For re-use the code of function __rt_ffs(), 
 	 * we define 1 to be idle and 0 to be occupied. 
-
 	 */
     rt_memset(bitmap, 0xFF, sizeof(rt_uint32_t));
 }

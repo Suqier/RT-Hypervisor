@@ -56,6 +56,10 @@
 #define	CNTHP_CTL_EL2	"S3_4_C14_C2_1"
 #define	CNTHPS_CTL_EL2	"S3_4_C14_C5_1"
 #define	CNTVOFF_EL2		"S3_4_C14_C0_3"
+#define CNTPCT_EL0      "S3_3_C14_C0_0"
+#define CNTP_TVAL_EL0   "S3_3_C14_C2_0"
+#define CNTP_CTL_EL0    "S3_3_C14_C2_1"
+#define CNTP_CVAL_EL0   "S3_3_C14_C2_2"
 #define TPIDR_EL2		"S3_4_C13_C0_2"
 
 #define MIDR_EL1		"S3_0_C0_C0_0"

@@ -18,8 +18,6 @@
 #include <armv8.h>
 #include "lib_helpers.h"
 
-#ifdef RT_HYPERVISOR
-
 #ifdef RT_USING_NVHE
 #include "nvhe/nvhe.h"
 #else
@@ -66,6 +64,52 @@
 
 typedef rt_uint64_t (*hvc_trap_handle)(rt_uint32_t fn, rt_uint64_t arg0, 
                                     rt_uint64_t arg1, rt_uint64_t arg2);
+
+/*
+ * Macro for sys64 handler
+ */
+#define ESR_OP0_SHIFT   (20)
+#define ESR_OP0_MASK    (0x3 << ESR_OP0_SHIFT)
+#define ESR_OP2_SHIFT   (17)
+#define ESR_OP2_MASK    (0x7 << ESR_OP2_SHIFT)
+#define ESR_OP1_SHIFT   (14)
+#define ESR_OP1_MASK    (0x7 << ESR_OP1_SHIFT)
+#define ESR_CRN_SHIFT   (10)
+#define ESR_CRN_MASK    (0xF << ESR_CRN_SHIFT)
+#define ESR_CRM_SHIFT   (1)
+#define ESR_CRM_MASK    (0xF << ESR_CRM_SHIFT)
+#define ESR_SYSREG_MASK (ESR_OP0_MASK | ESR_OP2_MASK | ESR_OP1_MASK \
+                        |ESR_CRN_MASK | ESR_CRM_MASK)
+#define ESR_RT_SHIFT    (5)
+#define ESR_RT_MASK     (0x1F << ESR_RT_SHIFT)
+#define ESR_DIRECTION_MASK  0b1
+#define ESR_DIRECTION_READ  0b1     /* otherwise write */
+
+#define __ESR_SYSREG_c0  0
+#define __ESR_SYSREG_c1  1
+#define __ESR_SYSREG_c2  2
+#define __ESR_SYSREG_c3  3
+#define __ESR_SYSREG_c4  4
+#define __ESR_SYSREG_c5  5
+#define __ESR_SYSREG_c6  6
+#define __ESR_SYSREG_c7  7
+#define __ESR_SYSREG_c8  8
+#define __ESR_SYSREG_c9  9
+#define __ESR_SYSREG_c10 10
+#define __ESR_SYSREG_c11 11
+#define __ESR_SYSREG_c12 12
+#define __ESR_SYSREG_c13 13
+#define __ESR_SYSREG_c14 14
+#define __ESR_SYSREG_c15 15
+
+#define ESR_SYSREG(op0, op1, crn, crm, op2) \
+    (((op0) << ESR_OP0_SHIFT) | ((op1) << ESR_OP1_SHIFT) | ((op2) << ESR_OP2_SHIFT) | \
+     ((__ESR_SYSREG_##crn) << ESR_CRN_SHIFT) | ((__ESR_SYSREG_##crm) << ESR_CRM_SHIFT))
+
+#define ESR_SYSREG_CNTPCT_EL0     ESR_SYSREG(3, 3, c14, c0, 0)
+#define ESR_SYSREG_CNTP_TVAL_EL0  ESR_SYSREG(3, 3, c14, c2, 0)
+#define ESR_SYSREG_CNTP_CTL_EL0   ESR_SYSREG(3, 3, c14, c2, 1)
+#define ESR_SYSREG_CNTP_CVAL_EL0  ESR_SYSREG(3, 3, c14, c2, 2)
 
 /* 
  * ISS for instruction/data abort from low level 
@@ -120,13 +164,9 @@ struct rt_sync_desc
 		.pc_offset = offset,                  \
 	};
 
-
-
-
+/* Sync handler framework */
 void rt_hw_handle_curr_sync(struct rt_hw_exp_stack *regs);
 void rt_hw_handle_low_sync(struct rt_hw_exp_stack *regs);
 void rt_hw_trap_sync(struct rt_hw_exp_stack *regs);
-
-#endif  /* RT_HYPERVISOR */
 
 #endif  /* __TRAP_H__ */

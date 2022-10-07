@@ -16,8 +16,6 @@
 
 #include "vgic.h"
 
-#if defined(RT_HYPERVISOR)
-
 #ifndef RT_USING_SMP
 #define RT_CPUS_NR      1
 extern int rt_hw_cpu_id(void);
@@ -152,5 +150,4 @@ void guest_to_host_arch_handler(struct vcpu *vcpu);
 void vcpu_to_vcpu_arch_handler(struct vcpu *from, struct vcpu *to);
 void guest_to_guest_arch_handler(struct vcpu *from, struct vcpu *to);
 
-#endif  /* RT_HYPERVISOR */
 #endif  /* __VIRT_H__ */

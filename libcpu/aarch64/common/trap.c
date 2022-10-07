@@ -76,7 +76,7 @@ void rt_hw_trap_error(struct rt_hw_exp_stack *regs)
     rt_hw_cpu_shutdown();
 }
 
-void rt_hw_trap_irq(void)
+void rt_hw_trap_irq(void)      /* Add Hypervisor handle IRQ later */
 {
 #ifndef BSP_USING_GIC
     void *param;
