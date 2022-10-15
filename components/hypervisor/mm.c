@@ -62,7 +62,7 @@ rt_err_t vm_mm_struct_init(struct mm_struct *mm)
     else
         rt_list_insert_after(&(mm->vm_area_used), &(va->node));
 
-    rt_kprintf("[Info] Init mm_struct success for %dth VM\n", vm->id);
+    rt_kprintf("[Info] %dth VM: Init mm_struct success\n", vm->id);
     return RT_EOK;
 }
 
@@ -113,7 +113,7 @@ rt_err_t alloc_vm_memory(struct mm_struct *mm)
         mm->mem_used += MEM_BLOCK_SIZE;
     }
 
-    rt_kprintf("[Info] Alloc %dMB memory for %dth VM\n", MB(mm->mem_used), vm->id);
+    rt_kprintf("[Info] %dth VM: Alloc %dMB memory\n", vm->id, MB(mm->mem_used));
     
     return RT_EOK;
 }

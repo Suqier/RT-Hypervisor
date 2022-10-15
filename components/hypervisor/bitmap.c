@@ -11,6 +11,38 @@
 #include <rtthread.h>
 #include "bitmap.h"
 
+/* 
+ * bit operation 
+ */
+rt_uint64_t bit_get(rt_uint64_t word, rt_uint64_t off)
+{
+    return word & (1UL << off);
+}
+
+rt_uint64_t bit_set(rt_uint64_t word, rt_uint64_t off)
+{
+    return word |= (1UL << off);
+}
+
+rt_uint64_t bit_clear(rt_uint64_t word, rt_uint64_t off)
+{
+    return word &= ~(1UL << off);
+}
+
+rt_uint64_t bit_extract(rt_uint64_t word, rt_uint64_t off, rt_uint64_t len)
+{
+    return (word >> off) & BITMASK(0, len);
+}
+
+rt_uint64_t bit_insert(rt_uint64_t word, rt_uint64_t val, rt_uint64_t off,
+                                  rt_uint64_t len)
+{
+    return (~BITMASK(off, len) & word) | ((BITMASK(0, len) & val) << off);
+}
+
+/* 
+ * bitmap operation 
+ */
 void bitmap_init(rt_uint32_t *bitmap)
 {
 	/* 

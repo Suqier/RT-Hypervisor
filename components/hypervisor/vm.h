@@ -50,7 +50,6 @@ struct vcpu
     rt_uint16_t status;
 
     struct vm *vm;
-    struct vcpu *next;
     rt_thread_t tid;
     struct vtimer_context *vtc;
 

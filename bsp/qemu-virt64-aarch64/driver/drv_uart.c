@@ -13,6 +13,7 @@
 #include <rtdevice.h>
 
 #include "board.h"
+#include "drv_uart.h"
 
 #define PL011_UARTDR            0x000
 #define PL011_UARTFR            0x018
@@ -27,12 +28,6 @@ void writel(unsigned int v, volatile void *addr)
 {
     *(volatile unsigned int *)addr = v;
 }
-
-struct hw_uart_device
-{
-    rt_ubase_t hw_base;
-    rt_uint32_t irqno;
-};
 
 static rt_err_t uart_configure(struct rt_serial_device *serial, struct serial_configure *cfg)
 {

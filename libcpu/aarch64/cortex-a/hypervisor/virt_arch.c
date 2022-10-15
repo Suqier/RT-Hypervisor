@@ -86,8 +86,8 @@ void vcpu_state_init(struct vcpu *vcpu)
     
     vcpu->arch->hcr_el2 = HCR_GUEST_FLAGS | HCR_GUEST_XMO_FLAGS;
 
-    c->sys_regs[_MPIDR_EL1]   = vcpu->id;  /* set this value to VMPIDR_EL2 */
-    c->sys_regs[_MIDR_EL1]    = 0x410FC050;     /* set this value to VMIDR_EL2 */
+    c->sys_regs[_MPIDR_EL1]   = vcpu->id;   /* set this value to VMPIDR_EL2 */
+    c->sys_regs[_MIDR_EL1]    = 0x410FC050; /* set this value to VMIDR_EL2 */
     c->sys_regs[_CPACR_EL1]   = CPACR_EL1_FPEN;
     c->sys_regs[_TTBR0_EL1]   = 0UL;
     c->sys_regs[_TTBR1_EL1]   = 0UL;
@@ -97,11 +97,11 @@ void vcpu_state_init(struct vcpu *vcpu)
     c->sys_regs[_PAR_EL1]     = 0UL;
     c->sys_regs[_CNTKCTL_EL1] = 0UL;
     c->sys_regs[_CNTVOFF_EL2] = 0UL;
-    c->sys_regs[_SCTLR_EL1] = 0x00C50078;
+    c->sys_regs[_SCTLR_EL1]   = 0x00C50078;
 
     vm->arch->vtcr_el2  = get_vtcr_el2();
     vm->arch->vttbr_el2 = ((rt_uint64_t)vm->mm->pgd_tbl & S2_VA_MASK) 
-                        | ((rt_uint64_t)vm->id     << VMID_SHIFT);
+                        | ((rt_uint64_t)vm->id << VMID_SHIFT);
 }
 
 /* Dump vCPU register info */

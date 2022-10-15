@@ -8,7 +8,10 @@
  * 2022-06-30     Suqier       first version
  */
 
+#include <rtconfig.h>
 #include "os.h"
+
+#define MAX_OS_NUM  3
 
 const struct os_desc os_img[MAX_OS_NUM] =
 {
@@ -53,6 +56,8 @@ const struct os_desc os_img[MAX_OS_NUM] =
             {
                 .gicd_addr = 0x08000000,
                 .gicr_addr = 0x080A0000,
+                .maintenance_id = 25,
+                .virq_num  = 127,  /* all support intid scope */
             },
         },
     },

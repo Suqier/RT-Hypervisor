@@ -417,26 +417,26 @@ rt_err_t run_vm(void)
             ret = vm_init(vm);
             if (ret != RT_EOK)
             {
-                rt_kprintf("[Error] Init %dth VM failure\n", vm_idx);
+                rt_kprintf("[Error] %dth VM: Init failure\n", vm_idx);
                 return ret;
             }
             else
             {
                 vm->status = VM_STATUS_ONLINE;
-                rt_kprintf("[Info] Run %dth VM first time\n", vm_idx);
+                rt_kprintf("[Info] %dth VM: Run first time\n", vm_idx);
                 vm_go(vm);
             }
             break;
         case VM_STATUS_UNKNOWN:
         default:
-            rt_kprintf("[Error] %dth VM's status unknown.\n", vm_idx);
+            rt_kprintf("[Error] %dth VM: Status unknown\n", vm_idx);
             ret = -RT_ERROR;
             break;
         }
     }
     else
     {
-        rt_kprintf("[Error] %dth VM is not set.\n", vm_idx);
+        rt_kprintf("[Error] %dth VM: Not use\n", vm_idx);
         ret = -RT_EINVAL;
     }
 
