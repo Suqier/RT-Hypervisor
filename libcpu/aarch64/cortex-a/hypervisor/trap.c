@@ -22,15 +22,16 @@ extern void rt_hw_trap_error(struct rt_hw_exp_stack *regs);
 /* for ESR_EC_UNKNOWN */
 void ec_unknown_handler(struct rt_hw_exp_stack *regs, rt_uint32_t esr)
 {
-    rt_kprintf("[Debug] tid->name = %s\n", rt_thread_self()->name);
+    rt_kprintf("ec_unknown_handler tid->name = %s\n", rt_thread_self()->name);
     while (1) {}
 }RT_INSTALL_SYNC_DESC(ec_unknown, ec_unknown_handler, 4);
 
 /* for ESR_EC_WFX */
 void ec_wfx_handler(struct rt_hw_exp_stack *regs, rt_uint32_t esr)
 {
-    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
     vcpu_suspend(get_curr_vcpu());
+    rt_kprintf("[Debug] tid->name = %s, curr_el = %d\n", 
+        rt_thread_self()->name, rt_hw_get_current_el());
 }RT_INSTALL_SYNC_DESC(ec_wfx, ec_wfx_handler, 4);
 
 /* for ESR_EC_HVC64 */
@@ -75,7 +76,7 @@ void ec_sys64_handler(struct rt_hw_exp_stack *regs, rt_uint32_t esr)
 /* for ESR_EC_IABT_LOW */
 void ec_iabt_low_handler(gp_regs_t regs, rt_uint32_t esr)
 {
-    rt_kprintf("[Debug] tid->name = %s\n", rt_thread_self()->name);
+    rt_kprintf("ec_iabt_low_handler tid->name = %s\n", rt_thread_self()->name);
     while(1) {}
 }RT_INSTALL_SYNC_DESC(ec_iabt_low, ec_iabt_low_handler, 0);
 
@@ -169,7 +170,13 @@ void ec_dabt_low_handler(gp_regs_t regs, rt_uint32_t esr)
     }
     else
     {
-        rt_kputs("[Error] Unsupported Data Abort Type or ISV invalid.\n");
+        rt_uint64_t fault_addr;
+        GET_SYS_REG(FAR_EL2, fault_addr);
+        rt_kprintf("[Error]   FAR_EL2 = 0x%016x\n", fault_addr);
+        GET_SYS_REG(HPFAR_EL2, fault_addr);
+        rt_kprintf("[Error] HPFAR_EL2 = 0x%016x\n", fault_addr);
+
+        rt_kprintf("[Error] Unsupported Type or ISV invalid, esr = 0x%08x\n", esr);
         vcpu_fault(get_curr_vcpu());
     }
 }RT_INSTALL_SYNC_DESC(ec_dabt_low, ec_dabt_low_handler, 4);
@@ -177,7 +184,7 @@ void ec_dabt_low_handler(gp_regs_t regs, rt_uint32_t esr)
 /* Sync Handler Table */
 static struct rt_sync_desc *low_sync_table[] = 
 {
-    // [0 ... ESR_EC_MAX] = &__sync_ec_unknown,
+    [0 ... ESR_EC_MAX] = &__sync_ec_unknown,
     [ESR_EC_UNKNOWN]   = &__sync_ec_unknown,
     [ESR_EC_WFX]       = &__sync_ec_wfx,
     [ESR_EC_HVC64]     = &__sync_ec_hvc64,

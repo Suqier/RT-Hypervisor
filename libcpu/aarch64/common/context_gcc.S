@@ -443,7 +443,54 @@ vector_irq:
     LDR     x0,  [X4]       // get new task's stack pointer
 
 vector_irq_exit:
-    RESTORE_CONTEXT
+    MOV     SP, X0
+
+    LDP     X2, X3, [SP], #0x10  /* SPSR and ELR. */
+
+    MRS     X0, CurrentEL
+    CMP     X0, 0xc
+    B.EQ    3f
+    CMP     X0, 0x8
+    B.EQ    2f
+    CMP     X0, 0x4
+    B.EQ    1f
+    B       .
+3:
+    MSR     SPSR_EL3, X3
+    MSR     ELR_EL3, X2
+    B       0f
+2:
+    MSR     SPSR_EL2, X3
+    MSR     ELR_EL2, X2
+    B       0f
+1:
+    MSR     SPSR_EL1, X3
+    MSR     ELR_EL1, X2
+    B       0f
+0:
+
+    LDP     X30, XZR, [SP], #0x10
+    LDP     X28, X29, [SP], #0x10
+    MSR     FPCR, X28
+    MSR     FPSR, X29
+    LDP     X28, X29, [SP], #0x10
+    LDP     X26, X27, [SP], #0x10
+    LDP     X24, X25, [SP], #0x10
+    LDP     X22, X23, [SP], #0x10
+    LDP     X20, X21, [SP], #0x10
+    LDP     X18, X19, [SP], #0x10
+    LDP     X16, X17, [SP], #0x10
+    LDP     X14, X15, [SP], #0x10
+    LDP     X12, X13, [SP], #0x10
+    LDP     X10, X11, [SP], #0x10
+    LDP     X8, X9, [SP], #0x10
+    LDP     X6, X7, [SP], #0x10
+    LDP     X4, X5, [SP], #0x10
+    LDP     X2, X3, [SP], #0x10
+    LDP     X0, X1, [SP], #0x10
+    RESTORE_FPU SP
+
+    ERET
 
 // -------------------------------------------------
 

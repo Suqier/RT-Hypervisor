@@ -110,29 +110,29 @@ void vcpu_regs_dump(struct vcpu *vcpu)
     struct cpu_context *c = &vcpu->arch->vcpu_ctxt;
     
     rt_kprintf("Dump vCPU Sys Regs:\n");
-    rt_kprintf("TPIDRRO_EL0: 0x%016x    TPIDR_EL0: 0x%016x\n", 
+    rt_kprintf("TPIDRRO_EL0: 0x%016x  TPIDR_EL0: 0x%016x\n", 
             c->sys_regs[_TPIDRRO_EL0], c->sys_regs[_TPIDR_EL0]);
-    rt_kprintf("CSSELR_EL1: 0x%016x     SCTLR_EL1: 0x%016x\n", 
+    rt_kprintf("CSSELR_EL1 : 0x%016x  SCTLR_EL1: 0x%016x\n", 
             c->sys_regs[_CSSELR_EL1], c->sys_regs[_SCTLR_EL1]);
-    rt_kprintf("CPACR_EL1: 0x%016x      TCR_EL1: 0x%016x\n", 
+    rt_kprintf("CPACR_EL1  : 0x%016x  TCR_EL1  : 0x%016x\n", 
             c->sys_regs[_CPACR_EL1], c->sys_regs[_TCR_EL1]);
-    rt_kprintf("TTBR0_EL1: 0x%016x      TTBR1_EL1: 0x%016x\n", 
+    rt_kprintf("TTBR0_EL1  : 0x%016x  TTBR1_EL1: 0x%016x\n", 
             c->sys_regs[_TTBR0_EL1], c->sys_regs[_TTBR1_EL1]);
-    rt_kprintf("ESR_EL1: 0x%016x        FAR_EL1: 0x%016x\n", 
+    rt_kprintf("ESR_EL1    : 0x%016x  FAR_EL1  : 0x%016x\n", 
             c->sys_regs[_ESR_EL1], c->sys_regs[_FAR_EL1]);
-    rt_kprintf("AFSR0_EL1: 0x%016x      AFSR1_EL1: 0x%016x\n", 
+    rt_kprintf("AFSR0_EL1  : 0x%016x  AFSR1_EL1: 0x%016x\n", 
             c->sys_regs[_AFSR0_EL1], c->sys_regs[_AFSR1_EL1]);
-    rt_kprintf("MAIR_EL1: 0x%016x       AMAIR_EL1: 0x%016x\n", 
+    rt_kprintf("MAIR_EL1   : 0x%016x  AMAIR_EL1: 0x%016x\n", 
             c->sys_regs[_MAIR_EL1], c->sys_regs[_AMAIR_EL1]);
-    rt_kprintf("CONTEXTIDR_EL1: 0x%016x VBAR_EL1: 0x%016x\n", 
+    rt_kprintf("CTXTIDR_EL1: 0x%016x  VBAR_EL1 : 0x%016x\n", 
             c->sys_regs[_CONTEXTIDR_EL1], c->sys_regs[_VBAR_EL1]);
-    rt_kprintf("CNTKCTL_EL1: 0x%016x    PAR_EL1: 0x%016x\n", 
+    rt_kprintf("CNTKCTL_EL1: 0x%016x  PAR_EL1  : 0x%016x\n", 
             c->sys_regs[_CNTKCTL_EL1], c->sys_regs[_PAR_EL1]);
-    rt_kprintf("SP_EL1: 0x%016x         ELR_EL1: 0x%016x\n", 
+    rt_kprintf("SP_EL1     : 0x%016x  ELR_EL1  : 0x%016x\n", 
             c->sys_regs[_SP_EL1], c->sys_regs[_ELR_EL1]);
-    rt_kprintf("MPIDR_EL1: 0x%016x      MIDR_EL1: 0x%016x\n", 
+    rt_kprintf("MPIDR_EL1  : 0x%016x  MIDR_EL1 : 0x%016x\n", 
             c->sys_regs[_MPIDR_EL1], c->sys_regs[_MIDR_EL1]);
-    rt_kprintf("SPSR_EL1: 0x%016x\n", c->sys_regs[_SPSR_EL1]);
+    rt_kprintf("SPSR_EL1   : 0x%016x\n", c->sys_regs[_SPSR_EL1]);
 }
 
 /* 
@@ -278,7 +278,7 @@ void host_to_guest_arch_handler(struct vcpu *vcpu)
     hook_vcpu_regs_restore(vcpu);
     activate_trap(vcpu);
     load_stage2_setting(vcpu);  // interrupts disabled ?
-    hook_vgic_context_restore(vcpu->vm->vgic);
+    hook_vgic_context_restore(vcpu);
 }
 
 /*
@@ -290,7 +290,7 @@ void guest_to_host_arch_handler(struct vcpu *vcpu)
     save_stage2_setting(vcpu);
     deactivate_trap(vcpu);
     hook_vcpu_regs_save(vcpu);
-    hook_vgic_context_save(vcpu->vm->vgic);
+    hook_vgic_context_save(vcpu);
 }
 
 /* 

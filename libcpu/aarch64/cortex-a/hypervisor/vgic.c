@@ -28,6 +28,11 @@ const static struct vgic_ops vgic_ops =
     .inject  = vgic_inject,
 };
 
+static rt_uint64_t read_idle_lr_reg(void);
+static void vgic_lr_list_sort(struct vcpu *vcpu);
+static void vgic_lr_list_insert(struct vcpu *vcpu, rt_uint64_t lr);
+static void vgic_lr_list_remove(struct vcpu *vcpu, rt_size_t rm_idx);
+
 /* For vGIC create & init */
 vgic_t vgic_create(void)
 {
@@ -70,7 +75,7 @@ void vgicd_init(struct vm *vm, vgicd_t gicd)
     
     rt_uint8_t it_line_num = (gicd->virq_num + 1) / 32 - 1;
     gicd->CTLR = 0;
-    gicd->IIDR = (rt_uint32_t)GIC_DIST_IIDR(hw_base);
+    gicd->IIDR = GIC_DIST_IIDR(hw_base);
     gicd->TYPE = ((it_line_num << GICD_TYPE_IT_OFF) & GICD_TYPE_IT_MASK) |
     (((vm->nr_vcpus - 1) << GICD_TYPE_CPU_OFF) & GICD_TYPE_CPU_MASK) |
     (((10 - 1) << GICD_TYPE_IDBITS_OFF) & GICD_TYPE_IDBITS_MASK);
@@ -82,14 +87,13 @@ void vgicr_init(vgicr_t gicr, struct vcpu *vcpu)
     rt_uint32_t hw_base = platform_get_gic_redist_base();
 
     gicr->CTLR = 0;
-    gicr->IIDR = (rt_uint32_t)GIC_RDIST_IIDR(hw_base);
+    gicr->IIDR = GIC_RDIST_IIDR(hw_base);
     gicr->TYPE = vcpu->id << GICR_TYPE_PN_OFF | 
     (vcpu->arch->vcpu_ctxt.sys_regs[_MPIDR_EL1] & MPIDR_AFF_MSK) << GICR_TYPE_AFF_OFF |
     !!(vcpu->id == vcpu->vm->nr_vcpus - 1) << GICR_TYPE_LAST_OFF;
 
     /* get from device tree */ 
-    bitmap_init(&gicr->lr_bitmap);
-    rt_memset((void *)&gicr->lr_list, 0, GIC_LR_LIST_NUM * sizeof(struct lr_reg));
+    rt_memset((void *)&gicr->lr_list, 0, GIC_LR_LIST_NUM * sizeof(rt_uint64_t));
 
     for (rt_size_t i = 0; i < VIRQ_PRIV_NUM; i++)
     {
@@ -142,7 +146,6 @@ void vgic_init(struct vm *vm)
 
     vgic_info_init(&v->info, os_idx);
     rt_memset((void *)&v->ctxt, 0, sizeof(struct vgic_context));
-    bitmap_init(&v->spi_bitmap);
     v->ops = &vgic_ops;
 
     GET_SYS_REG(ICH_VTR_EL2, v->ctxt.ich_vtr_el2);
@@ -151,8 +154,9 @@ void vgic_init(struct vm *vm)
     v->ctxt.nr_pr = ((v->ctxt.ich_vtr_el2 >> PRI_BITS_SHIFT) & PRI_BITS_MASK) + 1;
 
     v->ctxt.icc_sre_el1  = ICC_SRE_VAL;
-    // v->ctxt.icc_ctlr_el1 = ICC_CTLR_EOI;
-	v->ctxt.ich_vmcr_el2 = (GROUP1_INT << ICH_VMCR_VENG_OFF) | (ICH_VMPR_VAL << ICH_VMPR_OFF);
+    v->ctxt.icc_ctlr_el1 = ICC_CTLR_EOI;
+	v->ctxt.ich_vmcr_el2 = (GROUP1_INT << ICH_VMCR_VENG_OFF) 
+                       | (ICH_VMPR_VAL << ICH_VMPR_OFF);
 	v->ctxt.ich_hcr_el2  = ICH_HCR_EN;
 }
 
@@ -161,139 +165,6 @@ void vgic_free(vgic_t v)
     v->ops = RT_NULL;
     rt_free(v);
     v = RT_NULL;
-}
-
-/* 
- * hook_ Prefix function for switching.
- * 
- * In vGIC, These registers need to save:
- * - ICH_LR<n>_EL2
- * - ICH_APxRx_EL2
- * - ICC_SRE_EL1
- * - ICH_VMCR_EL2
- * - ICH_HCR_EL2
- */
-/* for save process */
-static void read_lr(struct vgic_context *c, int lr_idx, struct lr_reg *lr)
-{
-    RT_ASSERT(lr_idx < c->nr_lr);
-
-    switch (lr_idx)
-    {
-    case 15: GET_GICV3_REG(ICH_LR15_EL2, *lr); break;
-    case 14: GET_GICV3_REG(ICH_LR14_EL2, *lr); break;
-    case 13: GET_GICV3_REG(ICH_LR13_EL2, *lr); break;
-    case 12: GET_GICV3_REG(ICH_LR12_EL2, *lr); break;
-    case 11: GET_GICV3_REG(ICH_LR11_EL2, *lr); break;
-    case 10: GET_GICV3_REG(ICH_LR10_EL2, *lr); break;
-    case  9: GET_GICV3_REG(ICH_LR9_EL2, *lr);  break;
-    case  8: GET_GICV3_REG(ICH_LR8_EL2, *lr);  break;
-    case  7: GET_GICV3_REG(ICH_LR7_EL2, *lr);  break;
-    case  6: GET_GICV3_REG(ICH_LR6_EL2, *lr);  break;
-    case  5: GET_GICV3_REG(ICH_LR5_EL2, *lr);  break;
-    case  4: GET_GICV3_REG(ICH_LR4_EL2, *lr);  break;
-    case  3: GET_GICV3_REG(ICH_LR3_EL2, *lr);  break;
-    case  2: GET_GICV3_REG(ICH_LR2_EL2, *lr);  break;
-    case  1: GET_GICV3_REG(ICH_LR1_EL2, *lr);  break;
-    case  0: GET_GICV3_REG(ICH_LR0_EL2, *lr);  break;
-    default: break;
-    }
-}
-
-static void vgic_context_save_lr(struct vgic_context *c, rt_uint32_t nr_lr)
-{
-    for (rt_int8_t i = nr_lr - 1; i >= 0; i--)
-        read_lr(c, i, &c->ich_lr_el2[i]);
-}
-
-static void vgic_context_save_arp(struct vgic_context *c, rt_uint32_t nr_pr)
-{
-    switch (nr_pr)
-    {
-	case 7:
-        SET_GICV3_REG(ICH_AP1R2_EL2, c->ich_ap1r_el2);
-	case 6:
-        SET_GICV3_REG(ICH_AP1R1_EL2, c->ich_ap1r_el2);
-	case 5:
-        SET_GICV3_REG(ICH_AP1R0_EL2, c->ich_ap1r_el2);
-		break;
-    default:
-        break;
-    }
-}
-
-void hook_vgic_context_save(vgic_t v)
-{
-    struct vgic_context *c = &v->ctxt;
-
-    vgic_context_save_lr(c, c->nr_lr);
-    vgic_context_save_arp(c, c->nr_pr);
-    GET_GICV3_REG(ICC_SRE_EL1, c->icc_sre_el1);
-    GET_GICV3_REG(ICH_VMCR_EL2, c->ich_vmcr_el2);
-    GET_GICV3_REG(ICH_HCR_EL2, c->ich_hcr_el2);
-    // GET_GICV3_REG(ICC_CTLR_EL1, c->icc_ctlr_el1);
-}
-
-/* for restore process */
-static void write_lr(struct vgic_context *c, int lr_idx, struct lr_reg *lr)
-{
-    RT_ASSERT(lr_idx < c->nr_lr);
-    switch (lr_idx)
-    {
-    case 15: SET_GICV3_REG(ICH_LR15_EL2, *lr); break;
-    case 14: SET_GICV3_REG(ICH_LR14_EL2, *lr); break;
-    case 13: SET_GICV3_REG(ICH_LR13_EL2, *lr); break;
-    case 12: SET_GICV3_REG(ICH_LR12_EL2, *lr); break;
-    case 11: SET_GICV3_REG(ICH_LR11_EL2, *lr); break;
-    case 10: SET_GICV3_REG(ICH_LR10_EL2, *lr); break;
-    case  9: SET_GICV3_REG(ICH_LR9_EL2, *lr);  break;
-    case  8: SET_GICV3_REG(ICH_LR8_EL2, *lr);  break;
-    case  7: SET_GICV3_REG(ICH_LR7_EL2, *lr);  break;
-    case  6: SET_GICV3_REG(ICH_LR6_EL2, *lr);  break;
-    case  5: SET_GICV3_REG(ICH_LR5_EL2, *lr);  break;
-    case  4: SET_GICV3_REG(ICH_LR4_EL2, *lr);  break;
-    case  3: SET_GICV3_REG(ICH_LR3_EL2, *lr);  break;
-    case  2: SET_GICV3_REG(ICH_LR2_EL2, *lr);  break;
-    case  1: SET_GICV3_REG(ICH_LR1_EL2, *lr);  break;
-    case  0: SET_GICV3_REG(ICH_LR0_EL2, *lr);  break;
-    default: break;
-    }
-}
-
-static void vgic_context_restore_lr(struct vgic_context *c, rt_uint32_t nr_lr)
-{
-    for (rt_int8_t i = nr_lr - 1; i >= 0; i--)
-        write_lr(c, i, &c->ich_lr_el2[i]);
-    __ISB();
-}
-
-static void vgic_context_restore_arp(struct vgic_context *c, rt_uint32_t nr_pr)
-{
-    switch (nr_pr)
-    {
-	case 7:
-        SET_SYS_REG(ICH_AP1R2_EL2, c->ich_ap1r_el2);
-	case 6:
-        SET_SYS_REG(ICH_AP1R1_EL2, c->ich_ap1r_el2);
-	case 5:
-        SET_SYS_REG(ICH_AP1R0_EL2, c->ich_ap1r_el2);
-		break;
-    default:
-        break;
-    }
-}
-
-void hook_vgic_context_restore(vgic_t v)
-{
-    struct vgic_context *c = &v->ctxt;
-
-    vgic_context_restore_lr(c, c->nr_lr);
-    vgic_context_restore_arp(c, c->nr_pr);
-    SET_GICV3_REG(ICC_SRE_EL1 , c->icc_sre_el1);
-    SET_GICV3_REG(ICH_VMCR_EL2, c->ich_vmcr_el2);
-    SET_GICV3_REG(ICH_HCR_EL2 , c->ich_hcr_el2);
-    // SET_GICV3_REG(ICC_CTLR_EL1, c->icc_ctlr_el1);
-    __ISB();
 }
 
 /*  
@@ -767,9 +638,186 @@ void vgic_update(struct vcpu *vcpu, virq_t virq, rt_uint8_t update_id)
     }
 }
 
+/* 
+ * hook_ Prefix function for switching.
+ * 
+ * In vGIC, These registers need to save:
+ * - ICH_LR<n>_EL2
+ * - ICH_APxRx_EL2
+ * - ICC_SRE_EL1
+ * - ICH_VMCR_EL2
+ * - ICH_HCR_EL2
+ */
+static rt_uint64_t read_lr(struct vgic_context *c, int lr_idx)
+{
+    RT_ASSERT(lr_idx < c->nr_lr);
+
+    rt_uint64_t lr_val = 0;
+    switch (lr_idx)
+    {
+    case 15: GET_GICV3_REG(ICH_LR15_EL2, lr_val); break;
+    case 14: GET_GICV3_REG(ICH_LR14_EL2, lr_val); break;
+    case 13: GET_GICV3_REG(ICH_LR13_EL2, lr_val); break;
+    case 12: GET_GICV3_REG(ICH_LR12_EL2, lr_val); break;
+    case 11: GET_GICV3_REG(ICH_LR11_EL2, lr_val); break;
+    case 10: GET_GICV3_REG(ICH_LR10_EL2, lr_val); break;
+    case  9: GET_GICV3_REG(ICH_LR9_EL2,  lr_val); break;
+    case  8: GET_GICV3_REG(ICH_LR8_EL2,  lr_val); break;
+    case  7: GET_GICV3_REG(ICH_LR7_EL2,  lr_val); break;
+    case  6: GET_GICV3_REG(ICH_LR6_EL2,  lr_val); break;
+    case  5: GET_GICV3_REG(ICH_LR5_EL2,  lr_val); break;
+    case  4: GET_GICV3_REG(ICH_LR4_EL2,  lr_val); break;
+    case  3: GET_GICV3_REG(ICH_LR3_EL2,  lr_val); break;
+    case  2: GET_GICV3_REG(ICH_LR2_EL2,  lr_val); break;
+    case  1: GET_GICV3_REG(ICH_LR1_EL2,  lr_val); break;
+    case  0: GET_GICV3_REG(ICH_LR0_EL2,  lr_val); break;
+    default: break;
+    }
+    __DSB();
+    return lr_val;
+}
+
+static void write_lr(struct vgic_context *c, int lr_idx, rt_uint64_t lr)
+{
+    RT_ASSERT(lr_idx < c->nr_lr);
+ 
+    switch (lr_idx)
+    {
+    case 15: SET_GICV3_REG(ICH_LR15_EL2, lr); break;
+    case 14: SET_GICV3_REG(ICH_LR14_EL2, lr); break;
+    case 13: SET_GICV3_REG(ICH_LR13_EL2, lr); break;
+    case 12: SET_GICV3_REG(ICH_LR12_EL2, lr); break;
+    case 11: SET_GICV3_REG(ICH_LR11_EL2, lr); break;
+    case 10: SET_GICV3_REG(ICH_LR10_EL2, lr); break;
+    case  9: SET_GICV3_REG(ICH_LR9_EL2,  lr); break;
+    case  8: SET_GICV3_REG(ICH_LR8_EL2,  lr); break;
+    case  7: SET_GICV3_REG(ICH_LR7_EL2,  lr); break;
+    case  6: SET_GICV3_REG(ICH_LR6_EL2,  lr); break;
+    case  5: SET_GICV3_REG(ICH_LR5_EL2,  lr); break;
+    case  4: SET_GICV3_REG(ICH_LR4_EL2,  lr); break;
+    case  3: SET_GICV3_REG(ICH_LR3_EL2,  lr); break;
+    case  2: SET_GICV3_REG(ICH_LR2_EL2,  lr); break;
+    case  1: SET_GICV3_REG(ICH_LR1_EL2,  lr); break;
+    case  0: SET_GICV3_REG(ICH_LR0_EL2,  lr); break;
+    default: break;
+    }
+    __ISB();
+    // rt_kputs("[Info] lr written into ICH_LR_EL2\n");
+}
+
+/* for save process */
+/* Write LR information into lr_list. */
+static void vgic_context_save_lr(struct vcpu *vcpu, rt_uint32_t nr_lr)
+{
+    rt_uint64_t lr; 
+    rt_uint64_t elrsr = read_idle_lr_reg();
+    
+    for (rt_size_t i = 0; i < nr_lr; i++)
+    {
+        if(bit_get(elrsr, i) == 0)
+        {
+            lr = read_lr(&vcpu->vm->vgic->ctxt, i);
+            vgic_lr_list_insert(vcpu, lr);
+         
+            write_lr(&vcpu->vm->vgic->ctxt, i, 0);
+        }
+    }
+}
+
+static void vgic_context_save_arp(struct vgic_context *c, rt_uint32_t nr_pr)
+{
+    switch (nr_pr)
+    {
+	case 7:
+        SET_GICV3_REG(ICH_AP1R2_EL2, c->ich_ap1r_el2);
+	case 6:
+        SET_GICV3_REG(ICH_AP1R1_EL2, c->ich_ap1r_el2);
+	case 5:
+        SET_GICV3_REG(ICH_AP1R0_EL2, c->ich_ap1r_el2);
+		break;
+    default:
+        break;
+    }
+}
+
+void hook_vgic_context_save(struct vcpu *vcpu)
+{
+    struct vgic_context *c = &vcpu->vm->vgic->ctxt;
+
+    vgic_context_save_lr(vcpu, c->nr_lr);
+    vgic_context_save_arp(c, c->nr_pr);
+    GET_GICV3_REG(ICC_SRE_EL1, c->icc_sre_el1);
+    GET_GICV3_REG(ICH_VMCR_EL2, c->ich_vmcr_el2);
+    GET_GICV3_REG(ICH_HCR_EL2, c->ich_hcr_el2);
+    GET_GICV3_REG(ICC_CTLR_EL1, c->icc_ctlr_el1);
+}
+
+/* for restore process */
+/* Pick nr_lr vIRQ in lr_list and write it into LR. */
+static void vgic_context_restore_lr(struct vcpu *vcpu, rt_uint32_t nr_lr)
+{
+    rt_size_t rm_idx = 0;
+    rt_uint64_t elrsr = read_idle_lr_reg();
+    vgicr_t gicr = vcpu->vm->vgic->gicr[vcpu->id]; 
+
+    for (rt_size_t i = 0; i < nr_lr; i++)
+    {
+        if(bit_get(elrsr, i))   /* find idle LR */
+        {   
+            if (GET_LR_RES0(gicr->lr_list[rm_idx]) == 0)
+                break;
+            else
+            {
+                write_lr(&vcpu->vm->vgic->ctxt, i, gicr->lr_list[rm_idx]);
+                vgic_lr_list_remove(vcpu, rm_idx);
+                rm_idx++;
+            }
+        }
+    }
+    
+    vgic_lr_list_sort(vcpu);
+}
+
+static void vgic_context_restore_arp(struct vgic_context *c, rt_uint32_t nr_pr)
+{
+    switch (nr_pr)
+    {
+	case 7:
+        SET_SYS_REG(ICH_AP1R2_EL2, c->ich_ap1r_el2);
+	case 6:
+        SET_SYS_REG(ICH_AP1R1_EL2, c->ich_ap1r_el2);
+	case 5:
+        SET_SYS_REG(ICH_AP1R0_EL2, c->ich_ap1r_el2);
+		break;
+    default:
+        break;
+    }
+}
+
+void hook_vgic_context_restore(struct vcpu *vcpu)
+{
+    struct vgic_context *c = &vcpu->vm->vgic->ctxt;
+
+    vgic_context_restore_lr(vcpu, c->nr_lr);
+    vgic_context_restore_arp(c, c->nr_pr);
+    SET_GICV3_REG(ICC_SRE_EL1 , c->icc_sre_el1);
+    SET_GICV3_REG(ICH_VMCR_EL2, c->ich_vmcr_el2);
+    SET_GICV3_REG(ICH_HCR_EL2 , c->ich_hcr_el2);
+    SET_GICV3_REG(ICC_CTLR_EL1, c->icc_ctlr_el1);
+    __ISB();
+}
+
+
 /*
  * vGIC Inject vIRQ
  */
+static rt_uint64_t read_idle_lr_reg(void)
+{
+    rt_uint64_t val;
+    GET_GICV3_REG(ICH_ELRSR_EL2, val);
+    return val;
+}
+
 static rt_uint64_t vgic_get_hcr(void)
 {
     rt_uint64_t val;
@@ -780,6 +828,21 @@ static rt_uint64_t vgic_get_hcr(void)
 static void vgic_set_hcr(rt_uint64_t val)
 {
     SET_GICV3_REG(ICH_HCR_EL2, val);
+}
+
+static void vgic_call_maintenance_irq(void)
+{
+    vgic_set_hcr(vgic_get_hcr() | ICH_HCR_NPIE);
+}
+
+virq_t vgic_get_virq(struct vcpu *vcpu, int ir)
+{
+    RT_ASSERT(vcpu);
+
+    if (ir < VIRQ_PRIV_NUM)
+        return &vcpu->vm->vgic->gicr[vcpu->id]->virqs[ir];
+    else
+        return &vcpu->vm->vgic->gicd->virqs[ir - VIRQ_PRIV_NUM];
 }
 
 void vgic_virq_register(struct vm *vm)
@@ -806,163 +869,180 @@ void vgic_virq_register(struct vm *vm)
     }
 }
 
-static rt_size_t vgic_find_lr(struct vcpu *vcpu)
+/* After Host allocate someone device into VM, than mount VM's vIRQ. */
+void vgic_virq_mount(struct vm *vm, int ir)
 {
-    rt_size_t idle_lr_idx = LR_NO_USE;
-    rt_uint64_t idle_lr;
-    GET_GICV3_REG(ICH_ELRSR_EL2, idle_lr);
+    RT_ASSERT(vm);
 
-    for (rt_size_t i = 0; i < vcpu->vm->vgic->ctxt.nr_lr; i++) 
+    for (rt_size_t i = 0; i < vm->nr_vcpus; i++)
     {
-        if (bit_get(idle_lr, i))
+        if (vm->vcpus[i])
         {
-            idle_lr_idx = i;
-            continue;
+           virq_t virq = vgic_get_virq(vm->vcpus[i], ir);
+           if (virq->enable == RT_TRUE)
+           {
+                virq->hw     = RT_TRUE;
+                virq->pINTID = ir;
+                return;
+           }
         }
     }
+}
 
-    return idle_lr_idx;
+static rt_bool_t vgic_is_lr_list_empty(struct vcpu *vcpu)
+{
+    RT_ASSERT(vcpu);
+    return (vcpu->vm->vgic->gicr[vcpu->id]->tail == 0);
+}
+
+static rt_bool_t vgic_is_lr_list_full(struct vcpu *vcpu)
+{
+    RT_ASSERT(vcpu);
+    return (vcpu->vm->vgic->gicr[vcpu->id]->tail == GIC_LR_LIST_NUM);
 }
 
 /*
- * Pick one vIRQ which can be exchanged out from LR list now,
- * return it's index in LR list.
+ * heap sort for lr_reg 
  */
-static rt_size_t vgic_pick_lr(struct vcpu *vcpu, virq_t virq)
+static void rt_swap_lr_reg(rt_uint64_t *a, rt_uint64_t *b)
 {
-    struct lr_reg lr;
-    rt_size_t   idle_lr_idx   =  0;
-    rt_uint16_t min_prio_pend =  0, min_prio_act =  0;
-    rt_uint16_t pend_found    =  0, act_found    =  0;
-    rt_int16_t  pend_ind      = -1, act_ind      = -1;
+    rt_uint64_t temp = *b;
+    *b = *a;
+    *a = temp;
+}
 
-    for (; idle_lr_idx < vcpu->vm->vgic->ctxt.nr_lr; idle_lr_idx++)
-    {
-        read_lr(&vcpu->vm->vgic->ctxt, idle_lr_idx, &lr);
-
-        if (lr.vINTID && lr.state == VIRQ_STATUS_INACTIVE)
-            return idle_lr_idx;
-
-        if (lr.vINTID && lr.state == VIRQ_STATUS_ACTIVE) 
-        {
-            if (lr.prio > min_prio_act) 
-            {
-                min_prio_act = lr.prio;
-                act_ind = idle_lr_idx;
-            }
-            pend_found++;
-        } 
+/* output: from big to small (9 -> 0)*/
+static void 
+lr_list_heap_sort(rt_uint64_t arr[], rt_size_t start, rt_size_t end)
+{
+    rt_size_t dad = start;
+    rt_size_t son = dad * 2 + 1;
+    while (son <= end)
+    {   
+        if (son + 1 <= end && GET_LR_PRIO(arr[son]) < GET_LR_PRIO(arr[son + 1])) 
+            son++;
         
-        if (lr.vINTID && lr.state == VIRQ_STATUS_PENDING) 
-        {
-            if (lr.prio > min_prio_pend)
-            {
-                min_prio_pend = lr.prio;
-                pend_ind = idle_lr_idx;
-            }
-            act_found++;
+        if (GET_LR_PRIO(arr[son]) < GET_LR_PRIO(arr[dad])) 
+            return;
+        else
+        { 
+            rt_swap_lr_reg(&arr[dad], &arr[son]);
+            dad = son;
+            son = dad * 2 + 1;
         }
     }
+}
 
-    if (pend_found > 1)
-        idle_lr_idx = pend_ind;
+static void 
+lr_list_heap_create(rt_uint64_t arr[], rt_size_t start, rt_size_t end)
+{
+	for(rt_int16_t i = (end - start) / 2; i >= 0; i--)
+		lr_list_heap_sort(arr, start, end);
+}
+
+static void vgic_lr_list_sort(struct vcpu *vcpu)
+{
+    if (vgic_is_lr_list_empty(vcpu) == RT_FALSE)
+    {
+        vgicr_t gicr = vcpu->vm->vgic->gicr[vcpu->id]; 
+        lr_list_heap_create(gicr->lr_list, 0, gicr->tail - 1);
+    }
+}
+
+static rt_bool_t vgic_is_lr_in_list(struct vcpu *vcpu, rt_uint64_t lr)
+{
+    vgicr_t gicr = vcpu->vm->vgic->gicr[vcpu->id];
+
+    for (rt_size_t i = 0; i < gicr->tail; i++)
+    {
+        rt_uint64_t _lr = gicr->lr_list[i];
+        if (GET_LR_VINT(_lr) == GET_LR_VINT(lr))
+            return RT_TRUE;
+    }
+
+    return RT_FALSE;
+}
+
+static void vgic_lr_list_insert(struct vcpu *vcpu, rt_uint64_t lr)
+{
+    if (!vgic_is_lr_list_full(vcpu) && !vgic_is_lr_in_list(vcpu, lr))
+    {
+        vgicr_t gicr = vcpu->vm->vgic->gicr[vcpu->id];
+        gicr->lr_list[gicr->tail] = lr;
+        gicr->lr_list[gicr->tail] |= (rt_uint64_t)1 << ICH_LR_RES0_OFF;
+        gicr->tail++;
+    }
     else
-        idle_lr_idx = act_ind;
-
-    return idle_lr_idx;
+        vgic_call_maintenance_irq();
 }
 
-static rt_int8_t vgic_is_lr_in_list(struct vcpu *vcpu, struct lr_reg *lr)
+static void vgic_lr_list_remove(struct vcpu *vcpu, rt_size_t rm_idx)
 {
-    vgicr_t gicr = vcpu->vm->vgic->gicr[vcpu->id];
-    for (rt_int8_t i = 0; i < 32; i++)
-    {
-        int bit = bitmap_get_bit(&gicr->lr_bitmap, i);
-        if (bit)
-        {
-            struct lr_reg lr_in_list = gicr->lr_list[i];
-            if (lr_in_list.vINTID == lr->vINTID)
-                return i;
-        }
-    }
-    return -1;
+    RT_ASSERT(vcpu);
+
+    vgicr_t gicr = vcpu->vm->vgic->gicr[vcpu->id]; 
+    RT_ASSERT(rm_idx >=0 && rm_idx < gicr->tail);
+
+    rt_swap_lr_reg(&gicr->lr_list[rm_idx], &gicr->lr_list[--gicr->tail]);
+    gicr->lr_list[gicr->tail] = 0;
 }
 
-/*
- * According LR index return from vgic_pick_lr(), 
- * remove corresponding vIRQ int the LR list and save it into memory.
- */
-static void vgic_remove_lr(struct vcpu *vcpu, rt_size_t idle_lr_idx)
+static rt_uint64_t vgic_get_lr_from_virq(virq_t virq)
 {
-    struct lr_reg lr;
-    read_lr(&vcpu->vm->vgic->ctxt, idle_lr_idx, &lr);
-    write_lr(&vcpu->vm->vgic->ctxt, idle_lr_idx, (struct lr_reg *)(0));
-
-    rt_size_t virq_id = lr.vINTID;
-    vgicr_t gicr = vcpu->vm->vgic->gicr[vcpu->id];
-    int n = bitmap_find_next(&gicr->lr_bitmap);
-    bitmap_set_bit(&gicr->lr_bitmap, n);
-    gicr->lr_list[n] = lr;
-    gicr->virqs[virq_id].in_lr = RT_FALSE;
-
-    if (lr.state != VIRQ_STATUS_INACTIVE)  /* set maintenance interrupt */
-        vgic_set_hcr(vgic_get_hcr() | ICH_HCR_NPIE);
-}
-
-/* 
- * Add a vIRQ into LR list. 
- * In this function, we can say idle_lr_idx is OK.
- */
-static void vgic_add_lr(struct vcpu *vcpu, virq_t virq, rt_size_t idle_lr_idx)
-{
+    rt_uint64_t lr = 0;
     if (virq->in_lr || !virq->enable)
-        return;
+        return lr;
 
-    struct lr_reg lr;
-    lr.group  = GROUP1_INT;
-    lr.hw     = virq->hw;
-    lr.vINTID = virq->vINIID;
-    lr.prio   = virq->prio;
-    lr.state  = virq->state;
-    if (lr.hw)
-        lr.pINTID = virq->pINTID;
+    lr |= ((rt_uint64_t)GROUP1_INT   << ICH_LR_GROUP_OFF);
+    lr |= ((rt_uint64_t)virq->vINIID << ICH_LR_VINT_OFF);
+    lr |= ((rt_uint64_t)virq->prio   << ICH_LR_PRIO_OFF);
+    lr |= ((rt_uint64_t)virq->hw     << ICH_LR_HW_OFF);
+    lr |= ((rt_uint64_t)VIRQ_STATUS_PENDING << ICH_LR_STAT_OFF);
 
-    write_lr(&vcpu->vm->vgic->ctxt, idle_lr_idx, &lr);
-
-    vgicr_t gicr = vcpu->vm->vgic->gicr[vcpu->id];
-    int i = vgic_is_lr_in_list(vcpu, &lr);
-    if (i > 0)
-    {
-        /* remove it from LR list */
-        rt_memset((void *)&gicr->lr_list[i], 0, sizeof(struct lr_reg));
-    }
-    gicr->virqs[lr.vINTID].in_lr = RT_TRUE;
-    gicr->virqs[lr.vINTID].lr    = idle_lr_idx;
+    if (bit_get(lr, ICH_LR_HW_OFF))
+        lr |= ((rt_uint64_t)virq->pINTID << ICH_LR_PINT_OFF);
+    
+    virq->state = VIRQ_STATUS_PENDING;
+    return lr;
 }
 
 void vgic_inject(struct vcpu *vcpu, virq_t virq)
 {
     /* 
-     * Host find a idle LR register and write into. 
-     * If there's no idle LR register, call maintenance interrupt.
-     * If there's no pending interrupt in LR register, call maintenance interrupt.
+     * Host find a idle index in lr_list and write vIRQ into it,
+     * than re-sort the lr_list, pick nr_lr highest priority interrupt
+     * and write them into LR. 
+     *
+     * If there's no idle index or no pending interrupt in lr_list, 
+     * call maintenance interrupt.
      */
-    rt_size_t idle_lr_idx = vgic_find_lr(vcpu);
+    rt_uint64_t lr = vgic_get_lr_from_virq(virq);
     
-    if(idle_lr_idx == LR_NO_USE)
-    {
-        idle_lr_idx = vgic_pick_lr(vcpu, virq);
-        vgic_remove_lr(vcpu, idle_lr_idx);
-    }
-
-    if (idle_lr_idx != LR_NO_USE)
-    {
-        vgic_add_lr(vcpu, virq, idle_lr_idx);
-        vcpu_go(vcpu);      /* kick vcpu to handler this vIRQ */
-    }
+    if (vgic_is_lr_in_list(vcpu, lr))  /* This lr is already in the list */
+        return;
     else
-    {
-        /* set maintenance interrupt */
-        vgic_set_hcr(vgic_get_hcr() | ICH_HCR_NPIE);
-    }
+        vgic_lr_list_insert(vcpu, lr);
+
+    rt_uint32_t nr_lr = vcpu->vm->vgic->ctxt.nr_lr;
+    rt_uint64_t elrsr = read_idle_lr_reg();
+    vgicr_t gicr = vcpu->vm->vgic->gicr[vcpu->id]; 
+    rt_size_t virq_size = gicr->tail + 1;
+
+    for (rt_size_t i = 0; i < nr_lr; i++)
+        if(bit_get(elrsr, i) == 0)
+            virq_size++;
+
+    if (virq_size > nr_lr + GIC_LR_LIST_NUM)
+        vgic_call_maintenance_irq();
+
+    /* save all not active LR vIRQ into lr_list first */
+    vgic_context_save_lr(vcpu, nr_lr);
+
+    /* sort lr_list */
+    vgic_lr_list_sort(vcpu);
+
+    /* pick new vIRQ into LR from lr_list */
+    vgic_context_restore_lr(vcpu, nr_lr);
+
+    vcpu_go(vcpu);
 }

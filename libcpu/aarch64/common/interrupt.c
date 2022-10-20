@@ -133,7 +133,18 @@ void rt_hw_interrupt_ack(int vector)
 {
 #ifdef BSP_USING_GIC
     arm_gic_ack(0, vector);
-#endif
+#endif  /* BSP_USING_GIC */
+}
+
+/**
+ * This function acknowledges the interrupt.
+ * @param vector the interrupt number
+ */
+void rt_hw_interrupt_dir(int vector)
+{
+#if defined(BSP_USING_GIC) && defined(RT_HYPERVISOR)
+    arm_gic_ack_dir(0, vector);
+#endif  /* BSP_USING_GIC & RT_HYPERVISOR */
 }
 
 /**

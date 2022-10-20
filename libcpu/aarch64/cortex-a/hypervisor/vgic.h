@@ -150,6 +150,23 @@
 /* ICH_x */
 #define ICH_VTR_EL2_MASK 0xFFFFFFFF
 
+/* ICH_LR<n>_EL2 */
+#define ICH_LR_STAT_OFF     62
+#define ICH_LR_HW_OFF       61
+#define ICH_LR_GROUP_OFF    60
+#define ICH_LR_NMI_OFF      59
+#define ICH_LR_RES0_OFF     56
+#define ICH_LR_RES0_MSK     0x7
+#define ICH_LR_PRIO_OFF     48
+#define ICH_LR_PRIO_MSK     0xFF
+#define ICH_LR_RES1_OFF     45
+#define ICH_LR_PINT_OFF     32
+#define ICH_LR_VINT_OFF      0
+#define ICH_LR_VINT_MSK     0xFFFFFFFF
+#define GET_LR_PRIO(lr)     ((lr >> ICH_LR_PRIO_OFF) & ICH_LR_PRIO_MSK)   
+#define GET_LR_VINT(lr)     ((lr >> ICH_LR_VINT_OFF) & ICH_LR_VINT_MSK)
+#define GET_LR_RES0(lr)     ((lr >> ICH_LR_RES0_OFF) & ICH_LR_RES0_MSK)
+
 enum
 {
     UPDATE_ISEN = 0,
@@ -161,7 +178,6 @@ enum
     UPDATE_MAX,
 };
 
-
 /* vIRQ status */
 enum
 {
@@ -170,18 +186,6 @@ enum
     VIRQ_STATUS_ACTIVE,
     VIRQ_STATUS_PENDING_ACTIVE,
 };
-
-struct lr_reg 
-{
-    rt_uint64_t vINTID : 32;  
-    rt_uint64_t pINTID : 13;  
-    rt_uint64_t res0   :  3;  
-    rt_uint64_t prio   :  8;
-    rt_uint64_t res1   :  4;  
-    rt_uint64_t group  :  1;
-    rt_uint64_t hw     :  1;  
-    rt_uint64_t state  :  2;  
-}; 
 
 /* 
  * Describe vGIC's virtual interrupt
@@ -233,9 +237,11 @@ struct vgicr
     rt_uint32_t IIDR;
     rt_uint32_t TYPE;
 
-    rt_uint32_t lr_bitmap;  /* this bitmap will record idle LR REG in lr_list */
-    struct lr_reg lr_list[GIC_LR_LIST_NUM];   /* record vIRQ written into LR */
     struct virq virqs[VIRQ_PRIV_NUM];
+
+    /* 0 ~ GIC_LR_LIST_NUM */
+    rt_uint64_t lr_list[GIC_LR_LIST_NUM];   /* record vIRQ written into LR */
+    rt_uint32_t tail;                       /* tag first idle in lr_list */
     // spinlock
 };
 typedef struct vgicr *vgicr_t;
@@ -243,7 +249,6 @@ typedef struct vgicr *vgicr_t;
 struct vgic_context
 {
     /* info need to save/restore */
-    struct lr_reg ich_lr_el2[MAX_LR_REGS];
     rt_uint32_t ich_ap1r_el2;
 	rt_uint32_t icc_sre_el1;
 	rt_uint32_t icc_ctlr_el1;
@@ -271,10 +276,8 @@ struct vgic
 
     vgicd_t gicd;
     vgicr_t gicr[MAX_VCPU_NUM];
-    rt_uint32_t spi_bitmap;
 
     struct vgic_context ctxt;
-
     const struct vgic_ops *ops;
 };
 typedef struct vgic *vgic_t;
@@ -297,13 +300,17 @@ rt_inline rt_bool_t is_virq_priv(virq_t virq)
 {   return (virq->vINIID < VIRQ_PRIV_NUM);  }
 
 vgic_t vgic_create(void);
-void vgicd_init(struct vm *vm, vgicd_t gicd);  /* using when vgic init in init VM */
-void vgicr_init(vgicr_t gicr, struct vcpu *vcpu);  /* using when create vcpu */
+void vgicd_init(struct vm *vm, vgicd_t gicd);       /* using when vgic init in init VM */
+void vgicr_init(vgicr_t gicr, struct vcpu *vcpu);   /* using when create vcpu */
 void vgic_init (struct vm *vm);
 void vgic_free (vgic_t v);
 
-void hook_vgic_context_save(vgic_t v);
-void hook_vgic_context_restore(vgic_t v);
+void hook_vgic_context_save(struct vcpu *vcpu);
+void hook_vgic_context_restore(struct vcpu *vcpu);
+
+virq_t vgic_get_virq(struct vcpu *vcpu, int ir);
+void vgic_virq_register(struct vm *vm);
+void vgic_virq_mount(struct vm *vm, int ir);
 
 /* vIRQ Operations */
 void vgic_emulate(gp_regs_t regs, access_info_t acc, rt_bool_t gicd);

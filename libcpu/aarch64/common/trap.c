@@ -22,6 +22,11 @@
 extern long list_thread(void);
 #endif
 
+#ifdef RT_HYPERVISOR
+#include <vm.h>
+#include <vgic.h>
+#endif  /* RT_HYPERVISOR */
+
 /**
  * this function will show registers of CPU
  *
@@ -182,22 +187,45 @@ void rt_hw_trap_irq(void)      /* Add Hypervisor handle IRQ later */
     /* bit 10~12 is cpuid, bit 0~9 is interrupt id */
     ir_self = ir & 0x3ffUL;
 
-    /* get interrupt service routine */
-    isr_func = isr_table[ir_self].handler;
-#ifdef RT_USING_INTERRUPT_INFO
-    isr_table[ir_self].counter++;
-#endif
-    if (isr_func)
+#ifdef RT_HYPERVISOR
+    /* 
+     * To judge whether an interrput virtual or physical. 
+     * - Physical: go on like no hypervisor
+     * - Virtual : inject it and just EOI it 
+     */
+    struct vcpu *vcpu = vcpu_get_irq_owner(ir);
+    if (vcpu)
     {
-        /* Interrupt for myself. */
-        param = isr_table[ir_self].param;
-        /* turn to interrupt service routine */
-        isr_func(ir_self, param);
-    }
+        virq_t virq = vgic_get_virq(vcpu, ir);
 
-    /* end of interrupt */
-    rt_hw_interrupt_ack(ir);
-#endif
+        if (vcpu->status == VCPU_STATUS_ONLINE 
+        ||  vcpu->status == VCPU_STATUS_SUSPEND)
+            vcpu->vm->vgic->ops->inject(vcpu, virq);
+
+        // rt_kprintf("vgic_get_virq tid->name = %s\n", rt_thread_self()->name);
+        rt_hw_interrupt_ack(ir);
+    }
+    else
+#endif  /* RT_HYPERVISOR */
+    {
+        /* get interrupt service routine */
+        isr_func = isr_table[ir_self].handler;
+    #ifdef RT_USING_INTERRUPT_INFO
+        isr_table[ir_self].counter++;
+    #endif
+        if (isr_func)
+        {
+            /* Interrupt for myself. */
+            param = isr_table[ir_self].param;
+            /* turn to interrupt service routine */
+            isr_func(ir_self, param);
+        }
+
+        /* end of interrupt */
+        rt_hw_interrupt_ack(ir);
+        rt_hw_interrupt_dir(ir);
+    }
+#endif  /* BSP_USING_GIC */
 }
 
 void rt_hw_trap_fiq(void)

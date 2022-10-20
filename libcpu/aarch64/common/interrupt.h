@@ -28,6 +28,9 @@ void rt_hw_interrupt_umask(int vector);
 
 int rt_hw_interrupt_get_irq(void);
 void rt_hw_interrupt_ack(int vector);
+#ifdef RT_HYPERVISOR
+void rt_hw_interrupt_dir(int vector);
+#endif  /* RT_HYPERVISOR */
 
 void rt_hw_interrupt_set_target_cpus(int vector, unsigned int cpu_mask);
 unsigned int rt_hw_interrupt_get_target_cpus(int vector);

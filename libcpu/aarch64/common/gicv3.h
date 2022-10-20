@@ -31,6 +31,10 @@ extern rt_uint64_t rt_cpu_mpidr_early[];
 #define GET_GICV3_REG(reg, out) __asm__ volatile ("mrs %0, " reg:"=r"(out)::"memory");
 #define SET_GICV3_REG(reg, in)  __asm__ volatile ("msr " reg ", %0"::"r"(in):"memory");
 
+#define ICC_CTLR_CBPR_OFF   0
+#define ICC_CTLR_EOI_OFF    1
+#define ICC_CTLR_RSS_OFF   18
+
 /* AArch64 System register interface to GICv3 */
 #define ICC_IAR0_EL1    "S3_0_C12_C8_0"
 #define ICC_IAR1_EL1    "S3_0_C12_C12_0"
@@ -145,6 +149,10 @@ struct arm_gic
 
 int arm_gic_get_active_irq(rt_uint64_t index);
 void arm_gic_ack(rt_uint64_t index, int irq);
+
+#ifdef RT_HYPERVISOR
+void arm_gic_ack_dir(rt_uint64_t index, int irq);
+#endif  /* RT_HYPERVISOR */
 
 void arm_gic_mask(rt_uint64_t index, int irq);
 void arm_gic_umask(rt_uint64_t index, int irq);

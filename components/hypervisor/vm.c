@@ -13,10 +13,14 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "vm.h"
-#include "os.h"
+#include "hypervisor.h"
 #include "virt_arch.h"
 #include "vtimer.h"
+#include "vgic.h"
+#include "vm.h"
+#include "os.h"
+
+extern struct hypervisor rt_hyp;
 
 const char* vm_status_str[VM_STATUS_UNKNOWN + 1] =
 {
@@ -129,6 +133,7 @@ void vcpu_go(vcpu_t vcpu)
     switch (vcpu->status)
     {
     case VCPU_STATUS_ONLINE:
+        rt_schedule();
         break;
     case VCPU_STATUS_OFFLINE:
     case VCPU_STATUS_NEVER_RUN:
@@ -138,6 +143,7 @@ void vcpu_go(vcpu_t vcpu)
     case VCPU_STATUS_SUSPEND:
         vcpu->status = VCPU_STATUS_ONLINE;
         rt_thread_resume(vcpu->tid);
+        rt_schedule();
         break;
 
     case VCPU_STATUS_UNKNOWN:
@@ -178,6 +184,8 @@ void vcpu_shutdown(vcpu_t vcpu)
     {
         vcpu->status = VCPU_STATUS_OFFLINE;
         rt_thread_suspend(vcpu->tid);
+        rt_schedule();
+        /* console detach and release vcpu related resource */
         rt_thread_delete(vcpu->tid);
     }
     else if (vcpu->status == VCPU_STATUS_SUSPEND)
@@ -200,6 +208,35 @@ void vcpu_fault(vcpu_t vcpu)
     rt_kprintf("[Fault] %dth VM: %dth vCPU Fault\n", vcpu->vm->id, vcpu->id);
     vcpu_regs_dump(vcpu);
     vcpu_shutdown(vcpu);
+}
+
+struct vcpu *vcpu_get_irq_owner(int ir)
+{
+    for (rt_size_t i = 0; i < MAX_VM_NUM; i++)
+    {
+        if (rt_hyp.vms[i])
+        {
+            vgic_t v = rt_hyp.vms[i]->vgic;
+
+            if (ir < VIRQ_PRIV_NUM)     /* Find vIRQ in gicr */
+            {
+                for (rt_size_t j = 0; j < rt_hyp.vms[i]->nr_vcpus; j++)
+                {
+                    if (v->gicr[j]->virqs[ir].enable == RT_TRUE
+                     && v->gicr[j]->virqs[ir].hw     == RT_TRUE)
+                        return rt_hyp.vms[i]->vcpus[j];
+                }
+            }
+            else    /* Find vIRQ in gicd */
+            {
+                if (v->gicd->virqs[ir - VIRQ_PRIV_NUM].enable == RT_TRUE
+                 && v->gicd->virqs[ir - VIRQ_PRIV_NUM].hw     == RT_TRUE)
+                    return rt_hyp.vms[i]->vcpus[0];     // main core?
+            }
+        }
+    }
+
+    return RT_NULL;
 }
 
 /*
@@ -296,6 +333,8 @@ rt_err_t vm_init(vm_t vm)
 void vm_go(vm_t vm)
 {
     /* consider VM status? TBD */
+    // vc_attach(vm);
+
     vcpu_t vcpu = vm->vcpus[0];   /* main core */
     if (vcpu)
         vcpu_go(vcpu);

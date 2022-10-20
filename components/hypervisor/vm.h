@@ -114,6 +114,7 @@ void vcpu_suspend(vcpu_t vcpu);
 void vcpu_shutdown(vcpu_t vcpu);
 void vcpu_free(vcpu_t vcpu);
 void vcpu_fault(vcpu_t vcpu);
+struct vcpu *vcpu_get_irq_owner(int ir);
 
 /*
  * For VM

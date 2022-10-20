@@ -15,6 +15,7 @@
 #include "drv_uart.h"
 #include "vconsole.h"
 #include "hypervisor.h"
+#include "vgic.h"
 #include "os.h"
 
 extern struct hypervisor rt_hyp;
@@ -53,10 +54,7 @@ static void vc_init(vdev_t vc, struct vm *vm)
         return;
     }
     else
-    {
-        rt_size_t n = rt_strlen(RT_CONSOLE_DEVICE_NAME);
-        rt_strncpy(vc->dev->parent.name, RT_CONSOLE_DEVICE_NAME, n);
-    }
+        rt_strncpy(vc->dev->parent.name, RT_CONSOLE_DEVICE_NAME, RT_NAME_MAX);
 
     vc->vm = vm;
     vc->mmap_num = 1;
@@ -140,9 +138,12 @@ void vc_attach(struct vm *vm)
         if (rt_strcmp(vdev->dev->parent.name, RT_CONSOLE_DEVICE_NAME) == 0)
         {
             vdev->dev = new_dev;
-            finsh_set_device(vdev->dev->parent.name);
+            // finsh_set_device(vdev->dev->parent.name);
             vdev->is_open = RT_TRUE;
             rt_hyp.curr_vc_idx = vm->id;
+
+            /* Allocate device to VM then mount vIRQ */
+            vgic_virq_mount(vm, PL011_UART0_IRQNUM);
             return;
         }
     }
