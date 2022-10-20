@@ -61,6 +61,17 @@ void arm_gic_ack(rt_uint64_t index, int irq)
     SET_GICV3_REG(ICC_EOIR1_EL1, irq);
 }
 
+#ifdef RT_HYPERVISOR
+void arm_gic_ack_dir(rt_uint64_t index, int irq)
+{
+    RT_ASSERT(index < ARM_GIC_MAX_NR);
+    RT_ASSERT(irq >= 0);
+
+    __DSB();
+    SET_GICV3_REG(ICC_DIR_EL1, irq);
+}
+#endif  /* RT_HYPERVISOR */
+
 void arm_gic_mask(rt_uint64_t index, int irq)
 {
     rt_uint64_t mask = 1 << (irq % 32);
@@ -604,6 +615,10 @@ int arm_gic_dist_init(rt_uint64_t index, rt_uint64_t dist_base, int irq_start)
      */
     GIC_DIST_CTRL(dist_base) = GICD_CTLR_ARE_NS | GICD_CTLR_ENGRP1NS;
 
+#ifdef RT_HYEPRVISOR
+    SET_GICV3_REG(ICC_SRE_EL2, 0xF);
+#endif
+
     return 0;
 }
 
@@ -665,11 +680,25 @@ int arm_gic_cpu_init(rt_uint64_t index, rt_uint64_t cpu_base)
     value = 1;
     SET_GICV3_REG(ICC_IGRPEN1_EL1, value);
 
+    /* 
+     * ICC_BPR0_EL1 determines the preemption group for both Group 0&1 interrupts.
+     * Targeted SGIs with affinity level 0 values of 0 - 255 are supported.
+     */
     arm_gic_set_binary_point(0, 0);
 
-    /* ICC_BPR0_EL1 determines the preemption group for both Group 0 and Group 1 interrupts. */
-    value  = 1;         /* ICC_BPR0_EL1 determines the preemption group for both Group 0 and Group 1 interrupts.*/
-    value |= 1 << 18;   /* Targeted SGIs with affinity level 0 values of 0 - 255 are supported. */
+#ifdef RT_HYPERVISOR
+    /*
+     * In hypervisor mode, we should set ICC_CTLR_EL1.EOImode = 1 to sperate 
+     * interrupts priority drop and interrupts deactive.
+     * 
+     * Physical interrupts end with these two operations, 
+     * while virtual interrupts will be handle by vCPU between these two step.
+     */
+    value  = (1 << ICC_CTLR_CBPR_OFF) | (1 << ICC_CTLR_EOI_OFF) | (1 << ICC_CTLR_RSS_OFF);
+#else
+    value  = (1 << ICC_CTLR_CBPR_OFF) | (1 << ICC_CTLR_RSS_OFF);
+#endif   /* RT_HYPERVISOR */
+
     SET_GICV3_REG(ICC_CTLR_EL1, value);
 
     return 0;

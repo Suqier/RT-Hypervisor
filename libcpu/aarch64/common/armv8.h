@@ -57,6 +57,7 @@ struct rt_hw_exp_stack
 
     unsigned long long fpu[16];
 };
+typedef struct rt_hw_exp_stack *gp_regs_t;
 
 #define SP_ELx                      ( ( unsigned long long ) 0x01 )
 #define SP_EL0                      ( ( unsigned long long ) 0x00 )

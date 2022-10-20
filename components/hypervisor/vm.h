@@ -50,7 +50,6 @@ struct vcpu
     rt_uint16_t status;
 
     struct vm *vm;
-    struct vcpu *next;
     rt_thread_t tid;
     struct vtimer_context *vtc;
 
@@ -115,6 +114,7 @@ void vcpu_suspend(vcpu_t vcpu);
 void vcpu_shutdown(vcpu_t vcpu);
 void vcpu_free(vcpu_t vcpu);
 void vcpu_fault(vcpu_t vcpu);
+struct vcpu *vcpu_get_irq_owner(int ir);
 
 /*
  * For VM

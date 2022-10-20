@@ -11,6 +11,17 @@
 #ifndef DRV_UART_H__
 #define DRV_UART_H__
 
+#include <rtdef.h>
+
+struct hw_uart_device
+{
+    rt_ubase_t hw_base;
+    rt_uint32_t irqno;
+};
+
+unsigned int readl(volatile void *addr);
+void writel(unsigned int v, volatile void *addr);
+
 int rt_hw_uart_init(void);
 
 #endif /* DRV_UART_H__ */

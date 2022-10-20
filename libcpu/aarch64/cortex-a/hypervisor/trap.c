@@ -8,6 +8,7 @@
  * 2012-06-08     Suqier       first version
  */
 
+#include <bitmap.h>
 #include <os.h>
 #include <vm.h>
 #include <vdev.h>
@@ -21,16 +22,16 @@ extern void rt_hw_trap_error(struct rt_hw_exp_stack *regs);
 /* for ESR_EC_UNKNOWN */
 void ec_unknown_handler(struct rt_hw_exp_stack *regs, rt_uint32_t esr)
 {
-    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
+    rt_kprintf("ec_unknown_handler tid->name = %s\n", rt_thread_self()->name);
     while (1) {}
 }RT_INSTALL_SYNC_DESC(ec_unknown, ec_unknown_handler, 4);
 
 /* for ESR_EC_WFX */
 void ec_wfx_handler(struct rt_hw_exp_stack *regs, rt_uint32_t esr)
 {
-    /* vcpu turn to idle */
-    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
-    while (1) {}
+    vcpu_suspend(get_curr_vcpu());
+    rt_kprintf("[Debug] tid->name = %s, curr_el = %d\n", 
+        rt_thread_self()->name, rt_hw_get_current_el());
 }RT_INSTALL_SYNC_DESC(ec_wfx, ec_wfx_handler, 4);
 
 /* for ESR_EC_HVC64 */
@@ -46,8 +47,6 @@ void ec_hvc64_handler(struct rt_hw_exp_stack *regs, rt_uint32_t esr)
  */
 void ec_sys64_handler(struct rt_hw_exp_stack *regs, rt_uint32_t esr)
 {
-    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
-
     /* Just emulate a little part of system registers */
     rt_bool_t is_write;
     rt_uint32_t val, srt;
@@ -69,21 +68,16 @@ void ec_sys64_handler(struct rt_hw_exp_stack *regs, rt_uint32_t esr)
         break;
     
     default:
-        rt_kprintf("[Error] Unsupported system register access.\n");
+        rt_kputs("[Error] Unsupported system register access.\n");
         break;
     }
 }RT_INSTALL_SYNC_DESC(ec_sys64, ec_sys64_handler, 4);
 
 /* for ESR_EC_IABT_LOW */
-void ec_iabt_low_handler(struct rt_hw_exp_stack *regs, rt_uint32_t esr)
+void ec_iabt_low_handler(gp_regs_t regs, rt_uint32_t esr)
 {
-    /* 
-     * Re-try for ARM64_ERRATUM_1530923 
-     * We think there is no instruction abort normally. If occurs, it means that
-     * SPECULATIVE_AT happened and allocate error TLB, than re-write PC and SPSR. 
-     */
-    rt_kprintf("[Info] %s, %d. Re-try for ARM64_ERRATUM_1530923.\n", 
-                __FUNCTION__, __LINE__);
+    rt_kprintf("ec_iabt_low_handler tid->name = %s\n", rt_thread_self()->name);
+    while(1) {}
 }RT_INSTALL_SYNC_DESC(ec_iabt_low, ec_iabt_low_handler, 0);
 
 /* for ESR_EC_DABT_LOW */
@@ -92,57 +86,54 @@ rt_inline rt_bool_t is_fa_in(rt_uint64_t fa, rt_uint64_t base, rt_uint64_t size)
     return ((fa >= base) && (fa < base + size));
 }
 
-static void vdev_mmio_handler(struct rt_hw_exp_stack *regs, rt_uint64_t fa, 
-                            rt_bool_t is_write, rt_uint32_t srt)
+rt_inline rt_bool_t is_access_vgicd(rt_uint64_t fa)
+{
+    const struct os_desc *os = get_curr_vm()->os;
+    rt_uint64_t d = os->arch.vgic.gicd_addr;
+    return is_fa_in(fa, d, VGIC_GICD_SIZE);
+}
+
+rt_inline rt_bool_t is_access_vgicr(rt_uint64_t fa)
+{
+    const struct os_desc *os = get_curr_vm()->os;
+    rt_uint64_t r = os->arch.vgic.gicr_addr;
+    return is_fa_in(fa, r, VGIC_GICR_SIZE);
+}
+
+static void vdev_mmio_handler(gp_regs_t regs, access_info_t acc)
 {
     vm_t vm = get_curr_vm();
-    const struct os_desc *os = vm->os;
-
-    /* find base address in virtual GIC */
-    if (is_fa_in(fa, os->arch.vgic.gicd_addr, VGIC_GICD_SIZE))
-    {
-        if (is_write)
-            vm->vgic->ops->write(regs, fa, srt, os->arch.vgic.gicd_addr);
-        else
-            vm->vgic->ops->read(regs, fa, srt, os->arch.vgic.gicd_addr);
-
-        return;
-    }
-
-    if (is_fa_in(fa, os->arch.vgic.gicr_addr, VGIC_GICR_SIZE))
-    {
-        if (is_write)
-            vm->vgic->ops->write(regs, fa, srt, os->arch.vgic.gicr_addr);
-        else
-            vm->vgic->ops->read(regs, fa, srt, os->arch.vgic.gicr_addr);
-
-        return;
-    }
 
     /* find base address in virtual device */
     struct rt_list_node *pos;
     rt_list_for_each(pos, &vm->dev_list)
     {
         vdev_t vdev = rt_list_entry(pos, struct vdev, node);
-        for(rt_uint8_t i = 0; i < vdev->mmap_num; i++)
+        
+        if (vdev->is_open)
         {
-            if ((fa >= vdev->region->vaddr_start) && (fa < vdev->region->vaddr_end))
+            for(rt_uint8_t i = 0; i < vdev->mmap_num; i++)
             {
-                // vdev->dev->ops->read();
-                rt_kprintf("[Error] %s, Unsupported Operations\n", vdev->dev->parent.name);
-                
-                return;
+                if ((acc.addr >= vdev->region->vaddr_start)
+                &&  (acc.addr <  vdev->region->vaddr_end))
+                {
+                    if (vdev->ops->mmio)
+                        vdev->ops->mmio(regs, acc);
+
+                    return;
+                }
             }
         }
+        else
+            return;
     }
 }
 
-void ec_dabt_low_handler(struct rt_hw_exp_stack *regs, rt_uint32_t esr)
+void ec_dabt_low_handler(gp_regs_t regs, rt_uint32_t esr)
 {
-    rt_kprintf("[Info] %s, %d.\n", __FUNCTION__, __LINE__);
     rt_uint8_t dfsc = esr & FSC_TYPE_MASK;
-    rt_uint32_t isv_valid = esr & (1 << ESR_ISV_SHIFT);
-    if ((dfsc == FSC_TRANS || dfsc == FSC_PERM) && (isv_valid == ESR_ISV_VALID))
+    rt_bool_t is_isv_valid = !!bit_get(esr, ESR_ISV_SHIFT);
+    if ((dfsc == FSC_TRANS || dfsc == FSC_PERM) && is_isv_valid)
     {
         /* Parse ESR_EL2 register */
         rt_bool_t is_write, far_valid;
@@ -150,11 +141,11 @@ void ec_dabt_low_handler(struct rt_hw_exp_stack *regs, rt_uint32_t esr)
         rt_uint64_t fault_addr;
 
         srt = ESR_GET_SRT(esr);
-        val = ESR_GET_FNV(esr);
-        far_valid = (val == ESR_FNV_VALID) ? RT_TRUE : RT_FALSE;
         val = ESR_GET_WNR(esr);
         is_write = (val == ESR_WNR_WRITE) ? RT_TRUE : RT_FALSE;
-
+        
+        val = ESR_GET_FNV(esr);
+        far_valid = (val == ESR_FNV_VALID) ? RT_TRUE : RT_FALSE;
         if (far_valid)
         {
             GET_SYS_REG(FAR_EL2, fault_addr);
@@ -162,12 +153,30 @@ void ec_dabt_low_handler(struct rt_hw_exp_stack *regs, rt_uint32_t esr)
         else
             GET_SYS_REG(HPFAR_EL2, fault_addr);
 
+        access_info_t acc = 
+        {
+            .addr     = fault_addr,
+            .srt      = srt,
+            .is_write = is_write,
+        };
+
         /* MMIO handler */
-        vdev_mmio_handler(regs, fault_addr, is_write, srt);
+        if(is_access_vgicd(acc.addr))
+            get_curr_vm()->vgic->ops->emulate(regs, acc, RT_TRUE);
+        else if (is_access_vgicr(acc.addr))
+            get_curr_vm()->vgic->ops->emulate(regs, acc, RT_FALSE);
+        else
+            vdev_mmio_handler(regs, acc);
     }
     else
     {
-        rt_kprintf("[Error] Unsupported Data Abort Type or ISV invalid.\n");
+        rt_uint64_t fault_addr;
+        GET_SYS_REG(FAR_EL2, fault_addr);
+        rt_kprintf("[Error]   FAR_EL2 = 0x%016x\n", fault_addr);
+        GET_SYS_REG(HPFAR_EL2, fault_addr);
+        rt_kprintf("[Error] HPFAR_EL2 = 0x%016x\n", fault_addr);
+
+        rt_kprintf("[Error] Unsupported Type or ISV invalid, esr = 0x%08x\n", esr);
         vcpu_fault(get_curr_vcpu());
     }
 }RT_INSTALL_SYNC_DESC(ec_dabt_low, ec_dabt_low_handler, 4);
@@ -192,39 +201,27 @@ void rt_hw_handle_curr_sync(struct rt_hw_exp_stack *regs)
 
 void rt_hw_handle_low_sync(struct rt_hw_exp_stack *regs)
 {
-    rt_uint64_t reg_val, esr_val;
-    struct rt_sync_desc *desc;
+    rt_uint64_t esr_val;
 
     GET_SYS_REG(ESR_EL2, esr_val);
     rt_uint32_t ec_type = GET_EC(esr_val);
 
     if (ec_type >= ESR_EC_MAX)
     {
-        rt_kprintf("[Error] Unexpected ec_type:%d.\n", ec_type);
+        rt_kprintf("[Error] Unexpected ec_type: %d\n", ec_type);
         return;
     }
-    rt_kprintf("[Info]   ESR_EL2 = 0x%08x\n", esr_val);
 
-    // GET_SYS_REG(HCR_EL2, reg_val);
-    // rt_kprintf("[Info]   HCR_EL2 = 0x%08x\n", reg_val);
-    GET_SYS_REG(FAR_EL2, reg_val);
-    rt_kprintf("[Info]   FAR_EL2 = 0x%08x\n", reg_val);
-    GET_SYS_REG(CNTHCTL_EL2, reg_val);
-    rt_kprintf("[Info]CNTHCTL_EL2= 0x%08x\n", reg_val);
-    /*
-    GET_SYS_REG(HPFAR_EL2, reg_val);
-    rt_kprintf("[Info] HPFAR_EL2 = 0x%08x\n", reg_val);
-    GET_SYS_REG(VTTBR_EL2, reg_val);
-    rt_kprintf("[Info] VTTBR_EL2 = 0x%08x\n", reg_val);
-    GET_SYS_REG(SPSR_EL2, reg_val);
-    rt_kprintf("[Info]  SPSR_EL2 = 0x%08x\n", reg_val);    
-    GET_SYS_REG(ELR_EL2, reg_val);
-    rt_kprintf("[Info]   ELR_EL2 = 0x%08x\n", reg_val);
-    */
+    // rt_uint64_t reg_val;
+    // GET_SYS_REG(FAR_EL2, reg_val);
+    // rt_kprintf("[Info]   FAR_EL2 = 0x%08x\n", reg_val);
 
-    desc = low_sync_table[ec_type];
-    regs->pc += desc->pc_offset;
-    desc->handler(regs, esr_val);
+    struct rt_sync_desc *desc = low_sync_table[ec_type];
+    if (desc)
+    {
+        regs->pc += desc->pc_offset;
+        desc->handler(regs, esr_val);
+    }
 }
 
 /* handler sync exception from low level. */
@@ -237,5 +234,4 @@ void rt_hw_trap_sync(struct rt_hw_exp_stack *regs)
         rt_hw_handle_curr_sync(regs);
     else                        /* HCR_EL2.TGE = 0 -> Guest OS */
         rt_hw_handle_low_sync(regs);
-    rt_kprintf("[Info] %s, over.\n", __FUNCTION__);
 }

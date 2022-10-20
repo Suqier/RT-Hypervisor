@@ -586,6 +586,7 @@ int rt_snprintf(char *buf, rt_size_t size, const char *format, ...);
 #if defined(RT_USING_DEVICE) && defined(RT_USING_CONSOLE)
 rt_device_t rt_console_set_device(const char *name);
 rt_device_t rt_console_get_device(void);
+void rt_console_close_device(void);
 #endif
 
 rt_err_t rt_get_errno(void);

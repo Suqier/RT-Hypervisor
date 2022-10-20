@@ -115,7 +115,6 @@ typedef rt_uint64_t (*hvc_trap_handle)(rt_uint32_t fn, rt_uint64_t arg0,
  * ISS for instruction/data abort from low level 
  */
 #define ESR_ISV_SHIFT   (24)
-#define ESR_ISV_VALID   (1 << ESR_ISV_SHIFT)
 
 #define ESR_SAS_SHIFT   (22)
 #define ESR_SAS_BYTE    (0x00 << ESR_SAS_SHIFT)
@@ -145,9 +144,14 @@ typedef rt_uint64_t (*hvc_trap_handle)(rt_uint32_t fn, rt_uint64_t arg0,
 #define FSC_PERM        (0x0C)  /* Permission fault   */
 #define FSC_SEA         (0x10)  /* Synchronous External abort */
 
-/* 
- * Sync excepition handler definition 
- */
+typedef struct 
+{
+    rt_uint64_t addr;
+    rt_uint32_t srt;
+    rt_bool_t   is_write;
+}access_info_t;
+
+/* Sync excepition handler definition */
 typedef void (*rt_sync_handler_t)(struct rt_hw_exp_stack *regs, rt_uint32_t esr);
 
 struct rt_sync_desc

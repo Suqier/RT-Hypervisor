@@ -31,6 +31,10 @@ extern rt_uint64_t rt_cpu_mpidr_early[];
 #define GET_GICV3_REG(reg, out) __asm__ volatile ("mrs %0, " reg:"=r"(out)::"memory");
 #define SET_GICV3_REG(reg, in)  __asm__ volatile ("msr " reg ", %0"::"r"(in):"memory");
 
+#define ICC_CTLR_CBPR_OFF   0
+#define ICC_CTLR_EOI_OFF    1
+#define ICC_CTLR_RSS_OFF   18
+
 /* AArch64 System register interface to GICv3 */
 #define ICC_IAR0_EL1    "S3_0_C12_C8_0"
 #define ICC_IAR1_EL1    "S3_0_C12_C12_0"
@@ -54,40 +58,6 @@ extern rt_uint64_t rt_cpu_mpidr_early[];
 #define ICC_SGI0R_EL1   "S3_0_C12_C11_7"
 #define ICC_SGI1R_EL1   "S3_0_C12_C11_5"
 #define ICC_ASGI1R_EL1  "S3_0_C12_C11_6"
-
-#define ICH_AP0R0_EL2   "S3_4_C12_C8_0"
-#define ICH_AP0R1_EL2   "S3_4_C12_C8_1"
-#define ICH_AP0R2_EL2   "S3_4_C12_C8_2"
-#define ICH_AP0R3_EL2   "S3_4_C12_C8_3"
-
-#define ICH_AP1R0_EL2   "S3_4_C12_C9_0"
-#define ICH_AP1R1_EL2   "S3_4_C12_C9_1"
-#define ICH_AP1R2_EL2   "S3_4_C12_C9_2"
-#define ICH_AP1R3_EL2   "S3_4_C12_C9_3"
-
-#define ICH_HCR_EL2     "S3_4_C12_C11_0"
-#define ICH_VTR_EL2     "S3_4_C12_C11_1"
-#define ICH_MISR_EL2    "S3_4_C12_C11_2"
-#define ICH_EISR_EL2    "S3_4_C12_C11_3"
-#define ICH_ELRSR_EL2   "S3_4_C12_C11_5"
-#define ICH_VMCR_EL2    "S3_4_C12_C11_7"
-
-#define ICH_LR0_EL2     "S3_4_C12_C12_0"
-#define ICH_LR1_EL2     "S3_4_C12_C12_1"
-#define ICH_LR2_EL2     "S3_4_C12_C12_2"
-#define ICH_LR3_EL2     "S3_4_C12_C12_3"
-#define ICH_LR4_EL2     "S3_4_C12_C12_4"
-#define ICH_LR5_EL2     "S3_4_C12_C12_5"
-#define ICH_LR6_EL2     "S3_4_C12_C12_6"
-#define ICH_LR7_EL2     "S3_4_C12_C12_7"
-#define ICH_LR8_EL2     "S3_4_C12_C13_0"
-#define ICH_LR9_EL2     "S3_4_C12_C13_1"
-#define ICH_LR10_EL2    "S3_4_C12_C13_2"
-#define ICH_LR11_EL2    "S3_4_C12_C13_3"
-#define ICH_LR12_EL2    "S3_4_C12_C13_4"
-#define ICH_LR13_EL2    "S3_4_C12_C13_5"
-#define ICH_LR14_EL2    "S3_4_C12_C13_6"
-#define ICH_LR15_EL2    "S3_4_C12_C13_7"
 
 /* Macro to access the Distributor Control Register (GICD_CTLR) */
 #define GICD_CTLR_RWP       (1 << 31)
@@ -122,6 +92,7 @@ extern rt_uint64_t rt_cpu_mpidr_early[];
 /* Macro to access the Generic Interrupt Controller Distributor (GICD) */
 #define GIC_DIST_CTRL(hw_base)              HWREG32((hw_base) + 0x000U)
 #define GIC_DIST_TYPE(hw_base)              HWREG32((hw_base) + 0x004U)
+#define GIC_DIST_IIDR(hw_base)              HWREG32((hw_base) + 0x008U)
 #define GIC_DIST_IGROUP(hw_base, n)         HWREG32((hw_base) + 0x080U + ((n) / 32U) * 4U)
 #define GIC_DIST_ENABLE_SET(hw_base, n)     HWREG32((hw_base) + 0x100U + ((n) / 32U) * 4U)
 #define GIC_DIST_ENABLE_CLEAR(hw_base, n)   HWREG32((hw_base) + 0x180U + ((n) / 32U) * 4U)
@@ -178,6 +149,10 @@ struct arm_gic
 
 int arm_gic_get_active_irq(rt_uint64_t index);
 void arm_gic_ack(rt_uint64_t index, int irq);
+
+#ifdef RT_HYPERVISOR
+void arm_gic_ack_dir(rt_uint64_t index, int irq);
+#endif  /* RT_HYPERVISOR */
 
 void arm_gic_mask(rt_uint64_t index, int irq);
 void arm_gic_umask(rt_uint64_t index, int irq);
