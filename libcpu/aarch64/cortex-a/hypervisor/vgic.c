@@ -889,6 +889,25 @@ void vgic_virq_mount(struct vm *vm, int ir)
     }
 }
 
+void vgic_virq_umount(struct vm *vm, int ir)
+{
+    RT_ASSERT(vm);
+
+    for (rt_size_t i = 0; i < vm->nr_vcpus; i++)
+    {
+        if (vm->vcpus[i])
+        {
+           virq_t virq = vgic_get_virq(vm->vcpus[i], ir);
+           if (virq->enable == RT_TRUE)
+           {
+                virq->hw     = RT_FALSE;
+                virq->pINTID = 0;
+                return;
+           }
+        }
+    }
+}
+
 static rt_bool_t vgic_is_lr_list_empty(struct vcpu *vcpu)
 {
     RT_ASSERT(vcpu);

@@ -311,6 +311,7 @@ void hook_vgic_context_restore(struct vcpu *vcpu);
 virq_t vgic_get_virq(struct vcpu *vcpu, int ir);
 void vgic_virq_register(struct vm *vm);
 void vgic_virq_mount(struct vm *vm, int ir);
+void vgic_virq_umount(struct vm *vm, int ir);
 
 /* vIRQ Operations */
 void vgic_emulate(gp_regs_t regs, access_info_t acc, rt_bool_t gicd);

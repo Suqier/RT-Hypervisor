@@ -239,6 +239,13 @@ void finsh_set_device(const char *device_name)
     }
 }
 
+void finsh_delete_device(void)
+{
+    RT_ASSERT(shell != RT_NULL);
+
+    shell->device = RT_NULL;
+}
+
 /**
  * @ingroup finsh
  *
