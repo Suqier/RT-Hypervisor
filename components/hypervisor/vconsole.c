@@ -44,18 +44,9 @@ void get_vc_mmap_region(vdev_t vc, struct vm *vm)
 static void vc_init(vdev_t vc, struct vm *vm)
 {
     RT_ASSERT(vc && vm);
-
-    vc->dev = (rt_device_t)rt_malloc(sizeof(struct rt_device));
     
-    if (vc->dev == RT_NULL)
-    {
-        rt_kputs("[Error] Alloc memory for vConsole failure\n");
-        free(vc);
-        return;
-    }
-    else
-        rt_strncpy(vc->dev->parent.name, RT_CONSOLE_DEVICE_NAME, RT_NAME_MAX);
-
+    /* memory leak */
+    vc->dev = rt_device_find(RT_CONSOLE_DEVICE_NAME);
     vc->vm = vm;
     vc->mmap_num = 1;
     get_vc_mmap_region(vc, vm);
@@ -108,7 +99,7 @@ void vc_detach(vdev_t vc)
     {
         /* close device */
         finsh_delete_device();  /* clear finsh device and reset flag */
-        vc->dev = RT_NULL;
+        rt_device_close(vc->dev);
         vc->is_open = RT_FALSE;
         rt_hyp.curr_vc_idx = MAX_VM_NUM;
         vgic_virq_umount(vc->vm, PL011_UART0_IRQNUM);
@@ -122,12 +113,6 @@ void vc_detach(vdev_t vc)
 
 void vc_attach(struct vm *vm)
 {
-    if (vm->status != VM_STATUS_ONLINE)
-    {
-        rt_kprintf("[Info] %d th VM: Not working, can't attach it\n");
-        return;
-    }
-
     vdev_t vc = get_curr_vc();
     
     if (vc == RT_NULL)  /* Host console using UART */
@@ -137,19 +122,14 @@ void vc_attach(struct vm *vm)
         rt_console_close_device();
     }
     else    /* It's someone VM vConsole using UART */
-    {
         vc_detach(vc);
-    }
 
-    rt_device_t new_dev = rt_device_find(RT_CONSOLE_DEVICE_NAME);
-    
     struct rt_list_node *pos;
     rt_list_for_each(pos, &vm->dev_list)
     {
         vdev_t vdev = rt_list_entry(pos, struct vdev, node);
         if (rt_strcmp(vdev->dev->parent.name, RT_CONSOLE_DEVICE_NAME) == 0)
         {
-            vdev->dev = new_dev;
             vdev->is_open = RT_TRUE;
             rt_hyp.curr_vc_idx = vm->id;
 
@@ -158,6 +138,9 @@ void vc_attach(struct vm *vm)
             return;
         }
     }
+
+    rt_kprintf("[Error] %dth VM: no device as %s", vm->id, RT_CONSOLE_DEVICE_NAME);
+    return;
 }
 
 void console_mmio_handler(gp_regs_t regs, access_info_t acc)
@@ -201,16 +184,25 @@ rt_err_t attach_vm(int argc, char **argv)
             vm_idx = strtol((const char *)options.optarg, NULL, 10);
             if(vm_idx < 0 || vm_idx >= MAX_VM_NUM)
             {
-                rt_kprintf("[Error] %d-th VM: Out of scope\n", vm_idx);
+                rt_kprintf("[Error] %d-th VM: Out of scope, can't attach it\n", 
+                                vm_idx);
                 return -RT_EINVAL;
             }
 
             if (rt_hyp.vms[vm_idx] == RT_NULL)
             {
-                rt_kprintf("[Error] %d-th VM: Not use\n", vm_idx);
+                rt_kprintf("[Error] %d-th VM: Not use, can't attach it\n", 
+                                vm_idx);
                 return -RT_EINVAL;
             }
-            
+
+            if (rt_hyp.vms[vm_idx]->status != VM_STATUS_ONLINE)
+            {
+                rt_kprintf("[Info] %d th VM: Not working, can't attach it\n", 
+                                vm_idx);
+                return -RT_EINVAL;;
+            }
+
             vc_attach(rt_hyp.vms[vm_idx]);
             break;
         case '?':

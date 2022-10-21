@@ -236,6 +236,7 @@ rt_err_t create_vm(int argc, char **argv)
     }
 
     new_vm = (vm_t)rt_malloc(sizeof(struct vm));
+    rt_kprintf("0x%08x - 0x%08x\n", new_vm, new_vm + sizeof(struct vm));
     mm = (struct mm_struct *)rt_malloc(sizeof(struct mm_struct));
     vgic = vgic_create();
     if (new_vm == RT_NULL || mm == RT_NULL || vgic == RT_NULL)
@@ -248,6 +249,9 @@ rt_err_t create_vm(int argc, char **argv)
     }
     else
     {
+        rt_memset((void *)new_vm, 0, sizeof(struct vm));
+        rt_memset((void *)mm, 0, sizeof(struct mm_struct));
+
         new_vm->mm = mm;
         mm->vm = new_vm;
         new_vm->vgic = vgic;
@@ -583,13 +587,35 @@ void list_vm(void)
         }
     }
 }
+
 void print_el(void)
 {
     rt_ubase_t currEL = rt_hw_get_current_el();
     rt_kprintf("Now is at EL%d\n", currEL);
 }
-MSH_CMD_EXPORT(print_el, print current EL);
 
+void print_virq(int vm_idx)
+{
+    if (rt_hyp.vms[vm_idx] && rt_hyp.vms[vm_idx]->vgic->gicd)
+    {
+        rt_kprintf("__ %dth VM __\nvINTID = %d\npINTID = %d\nenable = %d\nhw = %d\n\n",
+            vm_idx,
+            rt_hyp.vms[vm_idx]->vgic->gicd->virqs[1].vINIID,
+            rt_hyp.vms[vm_idx]->vgic->gicd->virqs[1].pINTID,
+            rt_hyp.vms[vm_idx]->vgic->gicd->virqs[1].enable,
+            rt_hyp.vms[vm_idx]->vgic->gicd->virqs[1].hw);
+    }
+}
+
+void dump_virq(void)
+{
+    print_virq(0);
+    print_virq(1);
+    print_virq(2);
+    print_virq(3);
+}
+
+MSH_CMD_EXPORT(print_el, print current EL);
 MSH_CMD_EXPORT(list_os_img, list all os support);
 MSH_CMD_EXPORT(list_vm, list all vm detail);
 MSH_CMD_EXPORT(help_vm, print hypervisor help info);
@@ -600,4 +626,5 @@ MSH_CMD_EXPORT(run_vm, run vm by index);
 MSH_CMD_EXPORT(pause_vm, pause vm by index);
 MSH_CMD_EXPORT(halt_vm, halt vm by index);
 MSH_CMD_EXPORT(delete_vm, delete vm by index);
+MSH_CMD_EXPORT(dump_virq, for test);
 #endif /* RT_USING_FINSH */

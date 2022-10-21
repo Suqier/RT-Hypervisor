@@ -68,7 +68,6 @@ enum
 
 struct vm
 {
-    int vmid;
     rt_uint8_t id;     /* index in hypervisor vms array */ 
     rt_uint16_t status;
     
