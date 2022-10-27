@@ -217,21 +217,31 @@ struct vcpu *vcpu_get_irq_owner(int ir)
         if (rt_hyp.vms[i])
         {
             vgic_t v = rt_hyp.vms[i]->vgic;
-
+            
             if (ir < VIRQ_PRIV_NUM)     /* Find vIRQ in gicr */
             {
                 for (rt_size_t j = 0; j < rt_hyp.vms[i]->nr_vcpus; j++)
                 {
-                    if (v->gicr[j]->virqs[ir].enable == RT_TRUE
-                     && v->gicr[j]->virqs[ir].hw     == RT_TRUE)
-                        return rt_hyp.vms[i]->vcpus[j];
+                    if (v->gicr[j])
+                    {
+                        if (v->gicr[j]->virqs[ir].enable == RT_TRUE
+                        &&  v->gicr[j]->virqs[ir].hw     == RT_TRUE)
+                            return rt_hyp.vms[i]->vcpus[j];
+                    }
+                    else
+                        return RT_NULL;
                 }
             }
             else    /* Find vIRQ in gicd */
             {
-                if (v->gicd->virqs[ir - VIRQ_PRIV_NUM].enable == RT_TRUE
-                 && v->gicd->virqs[ir - VIRQ_PRIV_NUM].hw     == RT_TRUE)
-                    return rt_hyp.vms[i]->vcpus[0];     // main core?
+                if (v->gicd)
+                {
+                    if (v->gicd->virqs[ir - VIRQ_PRIV_NUM].enable == RT_TRUE
+                    &&  v->gicd->virqs[ir - VIRQ_PRIV_NUM].hw     == RT_TRUE)
+                        return rt_hyp.vms[i]->vcpus[0];     // main core?
+                }
+                else
+                    return RT_NULL;
             }
         }
     }
@@ -255,7 +265,7 @@ rt_err_t os_img_load(vm_t vm)
         ret = s2_translate(vm->mm, dst_va, &dst_pa);
         if (ret)
         {
-            rt_kputs("[Error] Load OS img failure\n");
+            rt_kprintf("[Error] %dth VM: Load OS img failure\n", vm->id);
             return ret;
         }
 
@@ -269,7 +279,7 @@ rt_err_t os_img_load(vm_t vm)
         dst_va += copy_size;
     } while (count > 0);
 
-    rt_kputs("[Info] Load OS img OK\n");
+    rt_kprintf("[Info] %dth VM: Load OS img OK\n", vm->id);
     return RT_EOK;
 }
 

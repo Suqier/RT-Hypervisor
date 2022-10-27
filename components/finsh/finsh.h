@@ -170,6 +170,7 @@ struct finsh_syscall *finsh_syscall_lookup(const char *name);
 
 #if !defined(RT_USING_POSIX_STDIO) && defined(RT_USING_DEVICE)
 void finsh_set_device(const char *device_name);
+void finsh_delete_device(void);
 #endif
 
 #endif

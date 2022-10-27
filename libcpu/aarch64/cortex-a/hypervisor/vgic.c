@@ -37,18 +37,15 @@ static void vgic_lr_list_remove(struct vcpu *vcpu, rt_size_t rm_idx);
 vgic_t vgic_create(void)
 {
     vgic_t v = (vgic_t)rt_malloc(sizeof(struct vgic));
-    vgicd_t gicd = (vgicd_t)rt_malloc(sizeof(struct vgicd));
 
-    if (v == RT_NULL || gicd == RT_NULL)
+    if (v == RT_NULL)
     {
         rt_free(v);
-        rt_free(gicd);
         rt_kputs("[Error] Alloc meomry for vGIC failure.\n");
-        return (vgic_t)RT_NULL;
+        return RT_NULL;
     }
-    else
-        v->gicd = gicd;
 
+    rt_memset((void *)v, 0, sizeof(struct vgic));
     return v;
 }
 
@@ -127,7 +124,13 @@ void vgic_init(struct vm *vm)
     rt_uint64_t os_idx = vm->os_idx;
 
     vgicd_t gicd = (vgicd_t)rt_malloc(sizeof(struct vgicd));
-    RT_ASSERT(gicd);
+    if (gicd == RT_NULL)
+    {
+        rt_kputs("[Error] Alloc memory for gicd failure\n");
+        return;
+    }
+    
+    rt_kprintf("0x%08x - 0x%08x\n", gicd, gicd + sizeof(struct vgicd));
     vm->vgic->gicd = gicd;
 
     vgicd_init(vm, v->gicd);
@@ -702,7 +705,6 @@ static void write_lr(struct vgic_context *c, int lr_idx, rt_uint64_t lr)
     default: break;
     }
     __ISB();
-    // rt_kputs("[Info] lr written into ICH_LR_EL2\n");
 }
 
 /* for save process */
@@ -883,6 +885,25 @@ void vgic_virq_mount(struct vm *vm, int ir)
            {
                 virq->hw     = RT_TRUE;
                 virq->pINTID = ir;
+                return;
+           }
+        }
+    }
+}
+
+void vgic_virq_umount(struct vm *vm, int ir)
+{
+    RT_ASSERT(vm);
+
+    for (rt_size_t i = 0; i < vm->nr_vcpus; i++)
+    {
+        if (vm->vcpus[i])
+        {
+           virq_t virq = vgic_get_virq(vm->vcpus[i], ir);
+           if (virq->enable == RT_TRUE)
+           {
+                virq->hw     = RT_FALSE;
+                virq->pINTID = 0;
                 return;
            }
         }
