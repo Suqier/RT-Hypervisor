@@ -121,17 +121,10 @@ static void __init_cpu(void)
     {
         parameter[i] = i;
         rt_sprintf(hyp_thread_name, "hyp%d", i);
-        rt_thread_init(&hyp_cpu_init[i], 
-                    hyp_thread_name,
-                    __cpu_hyp_enable_entry, 
-                    (void *)&parameter[i], 
-                    &hyp_stack[i],
-                    2048, 
-                    FINSH_THREAD_PRIORITY - 1, 
-                    THREAD_TIMESLICE);
-        rt_thread_control(&hyp_cpu_init[i], 
-                        RT_THREAD_CTRL_BIND_CPU, 
-                        (void *)i);
+        rt_thread_init(&hyp_cpu_init[i], hyp_thread_name, __cpu_hyp_enable_entry, 
+                    (void *)&parameter[i], &hyp_stack[i], 2048, 
+                    FINSH_THREAD_PRIORITY - 1, THREAD_TIMESLICE);
+        rt_thread_control(&hyp_cpu_init[i], RT_THREAD_CTRL_BIND_CPU, (void *)i);
         rt_thread_startup(&hyp_cpu_init[i]);
     }
 
@@ -157,8 +150,6 @@ static rt_err_t __init_subsystems(void)
         return -RT_ERROR;
     }
     
-    /* init vgic */
-
     /* init vtimer */
 
     return ret;
@@ -364,21 +355,6 @@ static rt_err_t vm_idx_check(void)
     }
 
     return ret;
-}
-
-static void print_vm(void)
-{
-    rt_uint64_t ret = RT_EOK;
-    ret = vm_idx_check();
-    if (ret)
-        return;
-
-    rt_uint64_t vm_idx = rt_hyp.curr_vm_idx;
-    vm_t vm = rt_hyp.vms[vm_idx];
-    rt_kprintf("[Debug] vm         = 0x%x\n", vm);
-    rt_kprintf("[Debug] vm->os     = 0x%x\n", vm->os);
-    rt_kprintf("[Debug] vm->os->ep = 0x%x\n", vm->os->img.ep);
-    rt_kprintf("[Debug] vm->mm     = 0x%x\n", vm->mm);
 }
 
 rt_err_t run_vm(void)
@@ -621,7 +597,6 @@ MSH_CMD_EXPORT(list_vm, list all vm detail);
 MSH_CMD_EXPORT(help_vm, print hypervisor help info);
 MSH_CMD_EXPORT(create_vm, create new vm);
 MSH_CMD_EXPORT(pick_vm, change current picking vm);
-MSH_CMD_EXPORT(print_vm, for debug);
 MSH_CMD_EXPORT(run_vm, run vm by index);
 MSH_CMD_EXPORT(pause_vm, pause vm by index);
 MSH_CMD_EXPORT(halt_vm, halt vm by index);

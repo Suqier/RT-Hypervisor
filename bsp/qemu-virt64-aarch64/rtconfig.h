@@ -158,6 +158,10 @@
 
 /* tools packages */
 
+#define PKG_USING_FDT
+#define FDT_USING_EXAMPLE
+#define FDT_USING_LIBFDT
+#define PKG_USING_FDT_V10000
 
 /* system packages */
 
@@ -199,8 +203,6 @@
 #define BSP_USING_RTC
 #define BSP_USING_ALARM
 #define BSP_USING_PIN
-#define BSP_USING_VIRTIO_CONSOLE
-#define BSP_USING_VIRTIO_INPUT
 #define BSP_USING_GIC
 #define BSP_USING_GICV3
 
