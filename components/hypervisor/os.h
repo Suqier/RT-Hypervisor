@@ -22,7 +22,6 @@ enum
 {
     OS_TYPE_LINUX = 0,
     OS_TYPE_RT_THREAD,
-    OS_TYPE_RT_ZEPHYR,
     OS_TYPE_OTHER,
 };
 

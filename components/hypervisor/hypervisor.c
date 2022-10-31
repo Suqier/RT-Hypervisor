@@ -28,7 +28,7 @@ static rt_uint8_t hyp_stack[RT_CPUS_NR][2048];
 static int parameter[RT_CPUS_NR];
 
 extern const struct os_desc os_img[MAX_OS_NUM];
-extern const char* vm_status_str[VM_STATUS_UNKNOWN + 1];
+extern const char* vm_stat_str[VM_STAT_UNKNOWN + 1];
 extern const char* os_type_str[OS_TYPE_OTHER + 1];
 
 struct hypervisor rt_hyp;
@@ -372,22 +372,22 @@ rt_err_t run_vm(void)
     {
         switch (vm->status)
         {
-        case VM_STATUS_OFFLINE:
+        case VM_STAT_OFFLINE:
             /* open this vm and schedule vcpus. */
-            vm->status = VM_STATUS_ONLINE;
+            vm->status = VM_STAT_ONLINE;
             hyp_info("%dth VM: Open", vm_idx);
             vm_go(vm);
             break;
-        case VM_STATUS_ONLINE:
+        case VM_STAT_ONLINE:
             hyp_warn("%dth VM: Running", vm_idx);
             break;
-        case VM_STATUS_SUSPEND:
+        case VM_STAT_SUSPEND:
             /* start schedule vcpus. */
-            vm->status = VM_STATUS_ONLINE;
+            vm->status = VM_STAT_ONLINE;
             hyp_info("%dth VM: Continue", vm_idx);
             vm_go(vm);
             break;
-        case VM_STATUS_NEVER_RUN:
+        case VM_STAT_NEVER_RUN:
             /* 
              * Before it runs, we should allocate resource for it.
              * Now it has only memory for struct vm. 
@@ -400,12 +400,12 @@ rt_err_t run_vm(void)
             }
             else
             {
-                vm->status = VM_STATUS_ONLINE;
+                vm->status = VM_STAT_ONLINE;
                 hyp_info("%dth VM: Run first time", vm_idx);
                 vm_go(vm);
             }
             break;
-        case VM_STATUS_UNKNOWN:
+        case VM_STAT_UNKNOWN:
         default:
             hyp_err("%dth VM: Status unknown", vm_idx);
             ret = -RT_ERROR;
@@ -556,7 +556,7 @@ void list_vm(void)
                 fmt = "%-*.*s %6.3d %-8.s %-10s %4.1d %8d\n";
             
             rt_kprintf(fmt, maxlen, VM_NAME_SIZE, vm->name, vm->id,
-                    vm_status_str[vm->status], os_type_str[vm->os->img.type],
+                    vm_stat_str[vm->status], os_type_str[vm->os->img.type],
                     vm->os->cpu.num, vm->mm->mem_size);
         }
     }

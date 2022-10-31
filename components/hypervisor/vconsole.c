@@ -195,7 +195,7 @@ rt_err_t attach_vm(int argc, char **argv)
                 return -RT_EINVAL;
             }
 
-            if (rt_hyp.vms[vm_idx]->status != VM_STATUS_ONLINE)
+            if (rt_hyp.vms[vm_idx]->status != VM_STAT_ONLINE)
             {
                 hyp_info("%d th VM: Not working, can't attach it", vm_idx);
                 return -RT_EINVAL;;

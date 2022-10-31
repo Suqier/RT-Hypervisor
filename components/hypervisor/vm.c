@@ -23,14 +23,21 @@
 
 extern struct hypervisor rt_hyp;
 
-const char* vm_status_str[VM_STATUS_UNKNOWN + 1] =
+const char* vm_stat_str[VM_STAT_UNKNOWN + 1] =
 {
-    "offline", "online", "suspend", "never", "unknown"
+    [VM_STAS_IDLE]      = "idle",
+    [VM_STAT_OFFLINE]   = "offline",    
+    [VM_STAT_ONLINE]    = "online",    
+    [VM_STAT_SUSPEND]   = "suspend",    
+    [VM_STAT_NEVER_RUN] = "never",    
+    [VM_STAT_UNKNOWN]   = "unknown",
 };
 
 const char* os_type_str[OS_TYPE_OTHER + 1] =
 {
-    "Linux", "RT-Thread", "Zephyr", "Other"
+    [OS_TYPE_LINUX] = "Linux",
+    [OS_TYPE_LINUX] = "RT-Thread",
+    [OS_TYPE_LINUX] = "Other",
 };
 
 /*
@@ -78,7 +85,7 @@ vcpu_t vcpu_create(vm_t vm, rt_uint32_t vcpu_id)
 
     vcpu->affinity = vm->os[vm->os_idx].cpu.affinity[vcpu_id];    /* affinity */
     vcpu->arch = arch;
-    vcpu->status = VCPU_STATUS_NEVER_RUN;
+    vcpu->status = VCPU_STAT_NEVER_RUN;
     tid->vcpu = vcpu;
     vcpu->tid = tid;
     vcpu->id = vcpu_id;
@@ -133,21 +140,21 @@ void vcpu_go(vcpu_t vcpu)
     RT_ASSERT(vcpu->tid);
     switch (vcpu->status)
     {
-    case VCPU_STATUS_ONLINE:
+    case VCPU_STAT_ONLINE:
         rt_schedule();
         break;
-    case VCPU_STATUS_OFFLINE:
-    case VCPU_STATUS_NEVER_RUN:
-        vcpu->status = VCPU_STATUS_ONLINE;
+    case VCPU_STAT_OFFLINE:
+    case VCPU_STAT_NEVER_RUN:
+        vcpu->status = VCPU_STAT_ONLINE;
         rt_thread_startup(vcpu->tid);
         break;
-    case VCPU_STATUS_SUSPEND:
-        vcpu->status = VCPU_STATUS_ONLINE;
+    case VCPU_STAT_SUSPEND:
+        vcpu->status = VCPU_STAT_ONLINE;
         rt_thread_resume(vcpu->tid);
         rt_schedule();
         break;
 
-    case VCPU_STATUS_UNKNOWN:
+    case VCPU_STAT_UNKNOWN:
     default:
         hyp_err("%dth VM: Run %dth vCPU failure", vcpu->vm->id, vcpu->id); 
         break;
@@ -159,18 +166,18 @@ void vcpu_suspend(vcpu_t vcpu)
     RT_ASSERT(vcpu->tid);
     switch (vcpu->status)
     {
-    case VCPU_STATUS_ONLINE:
-        vcpu->status = VCPU_STATUS_SUSPEND;
+    case VCPU_STAT_ONLINE:
+        vcpu->status = VCPU_STAT_SUSPEND;
         rt_thread_suspend(vcpu->tid);
         rt_schedule();
         break;
 
-    case VCPU_STATUS_NEVER_RUN:
-    case VCPU_STATUS_OFFLINE:
-    case VCPU_STATUS_SUSPEND:
+    case VCPU_STAT_NEVER_RUN:
+    case VCPU_STAT_OFFLINE:
+    case VCPU_STAT_SUSPEND:
         break;
 
-    case VCPU_STATUS_UNKNOWN:
+    case VCPU_STAT_UNKNOWN:
     default:
         hyp_err("%dth VM: Suspend %dth vCPU failure", vcpu->vm->id, vcpu->id);
         break;
@@ -181,23 +188,23 @@ void vcpu_shutdown(vcpu_t vcpu)
 {
     /* Turn vcpu->thread into RT_THREAD_CLOSE status and free vCPU resource. */
     hyp_info("%dth VM: Shutdown %dth vCPU", vcpu->vm->id, vcpu->id);
-    if (vcpu->status == VCPU_STATUS_ONLINE)
+    if (vcpu->status == VCPU_STAT_ONLINE)
     {
-        vcpu->status = VCPU_STATUS_OFFLINE;
+        vcpu->status = VCPU_STAT_OFFLINE;
         rt_thread_suspend(vcpu->tid);
         rt_schedule();
         /* console detach and release vcpu related resource */
         rt_thread_delete(vcpu->tid);
     }
-    else if (vcpu->status == VCPU_STATUS_SUSPEND)
+    else if (vcpu->status == VCPU_STAT_SUSPEND)
     {
-        vcpu->status = VCPU_STATUS_OFFLINE;
+        vcpu->status = VCPU_STAT_OFFLINE;
         rt_thread_delete(vcpu->tid);
     }
     else
         hyp_err("%dth VM: Shutdown %dth vCPU failure", vcpu->id, vcpu->vm->id);
     
-    vcpu->status = VCPU_STATUS_UNKNOWN; /* vCPU fault. */
+    vcpu->status = VCPU_STAT_UNKNOWN; /* vCPU fault. */
 }
 
 void vcpu_fault(vcpu_t vcpu)
@@ -285,7 +292,7 @@ void vm_config_init(vm_t vm, rt_uint8_t vm_idx)
 {
     vm->id = vm_idx;
     hyp_info("Allocate VM id is %03d", vm_idx);
-    vm->status = VM_STATUS_NEVER_RUN;
+    vm->status = VM_STAT_NEVER_RUN;
 
 #ifdef RT_USING_SMP
     rt_hw_spin_lock_init(&vm->vm_lock);
@@ -366,11 +373,11 @@ void vm_suspend(struct vm * vm)
         if (ret)
         {
             hyp_err("Pause VM failure at %dth vCPU", i);
-            vm->status = VM_STATUS_UNKNOWN;
+            vm->status = VM_STAT_UNKNOWN;
             return;
         }
     }
-    vm->status = VM_STATUS_SUSPEND;
+    vm->status = VM_STAT_SUSPEND;
 
 #ifdef RT_USING_SMP
     rt_hw_spin_unlock(&vm->vm_lock);
@@ -389,7 +396,7 @@ void vm_shutdown(vm_t vm)
 
         /* and release VM memory resource. @TODO */
 
-        vm->status = VM_STATUS_OFFLINE;
+        vm->status = VM_STAT_OFFLINE;
     }
 }
 
