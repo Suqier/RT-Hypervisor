@@ -381,38 +381,37 @@
 		compatible = "fixed-clock";
 	};
 
-	os_image {
-		nums = <1>;
-
-		os@0 {
+	vm {
+		vm@0 {
 			device_type = "virtual_machine";
-			vm_name = "qemu_vm0";
-			type = "rt-thread";
-			vcpus = <1>;
-			kernel_image = "Image";
+			vmid = <0>;
+			type = <1>;
 			image_address = <0x0 0x46000000>;
 			entry = <0x0 0x40008000>;
+			vcpus = <1>;
 			vcpu_affinity = <1>;
-			memory = <0x0 0x40000000 0x0 0x00600000>;
+			memory = <0x0 0x40000000 0x0 0x600000>;
+			phymem = <0x0 0x47000000 0x0 0x1000000>;
 
-			os0_device {	/* need fix */
+			vm0_device {	/* need fix */
 				#address-cells = <0x1>;
 				#size-cells = <0x1>;
 
 				vtimer_irq = <27>;
 
-				os0_vgic {
+				vm0_vgic {
 					compatible = "arm,gicv3";
 					#address-cells = <0x1>;
 					#size-cells = <0x1>;
-					reg = <0x2f000000 0x10000>, <0x2c000000 0x2000>;
+					/* GICD, GICR */
+					reg = <0x08000000 0x10000>, <0x080a0000 0x2000>;
 				};
 
-				os0_vm_console {
+				vm0_vc {
 					virtual_device;
 					compatible = "rt_thread,vm_console";
-					reg = <0x20001000 0x2000>;
-					interrupts = <0 0 4>;
+					reg = <0x09000000 0x00001000>;
+					interrupts = <0 0 33>;
 				};
 			};
 		};

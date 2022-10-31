@@ -25,7 +25,7 @@ extern struct hypervisor rt_hyp;
 
 const char* vm_stat_str[VM_STAT_UNKNOWN + 1] =
 {
-    [VM_STAS_IDLE]      = "idle",
+    [VM_STAT_IDLE]      = "idle",
     [VM_STAT_OFFLINE]   = "offline",    
     [VM_STAT_ONLINE]    = "online",    
     [VM_STAT_SUSPEND]   = "suspend",    
@@ -219,19 +219,19 @@ struct vcpu *vcpu_get_irq_owner(int ir)
 {
     for (rt_size_t i = 0; i < MAX_VM_NUM; i++)
     {
-        if (rt_hyp.vms[i])
+        if (rt_hyp.vms[i].status != VM_STAT_IDLE)
         {
-            vgic_t v = rt_hyp.vms[i]->vgic;
+            vgic_t v = rt_hyp.vms[i].vgic;
             
             if (ir < VIRQ_PRIV_NUM)     /* Find vIRQ in gicr */
             {
-                for (rt_size_t j = 0; j < rt_hyp.vms[i]->nr_vcpus; j++)
+                for (rt_size_t j = 0; j < rt_hyp.vms[i].nr_vcpus; j++)
                 {
                     if (v->gicr[j])
                     {
                         if (v->gicr[j]->virqs[ir].enable == RT_TRUE
                         &&  v->gicr[j]->virqs[ir].hw     == RT_TRUE)
-                            return rt_hyp.vms[i]->vcpus[j];
+                            return rt_hyp.vms[i].vcpus[j];
                     }
                     else
                         return RT_NULL;
@@ -243,7 +243,7 @@ struct vcpu *vcpu_get_irq_owner(int ir)
                 {
                     if (v->gicd->virqs[ir - VIRQ_PRIV_NUM].enable == RT_TRUE
                     &&  v->gicd->virqs[ir - VIRQ_PRIV_NUM].hw     == RT_TRUE)
-                        return rt_hyp.vms[i]->vcpus[0];     // main core?
+                        return rt_hyp.vms[i].vcpus[0];     // main core?
                 }
                 else
                     return RT_NULL;

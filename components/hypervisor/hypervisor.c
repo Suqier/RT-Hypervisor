@@ -13,8 +13,11 @@
 #include "switch.h"
 #include "os.h"
 #include "hyp_debug.h"
+#include "hyp_fdt.h"
 
 #include <vgic.h>
+
+#define FDT_ADDR    0x46000000
 
 #ifndef RT_USING_SMP
 #define RT_CPUS_NR      1
@@ -33,6 +36,47 @@ extern const char* os_type_str[OS_TYPE_OTHER + 1];
 
 struct hypervisor rt_hyp;
 
+static rt_uint32_t fdt_get_cell(struct dtb_node *dtb_node, const char *property_name)
+{
+    rt_size_t property_size;
+    rt_uint32_t *u32_ptr;
+
+    u32_ptr = fdt_get_dtb_node_property(dtb_node, property_name, &property_size);
+    return fdt_get_dtb_cell_value(u32_ptr);
+}
+
+rt_err_t vm_info_init(void)
+{
+    rt_err_t ret = RT_EOK;
+
+    void *fdt;
+    if ((fdt = fdt_load_from_memory((void *)FDT_ADDR, RT_FALSE)) != RT_NULL)
+    {
+        struct dtb_node *dtb_node_list = fdt_get_dtb_list(fdt);
+        if (dtb_node_list != RT_NULL)
+        {
+            struct dtb_node *vm = fdt_get_dtb_node_by_path(dtb_node_list, "/vm");
+            if (vm != RT_NULL)
+            {
+                struct dtb_node *vm_child = vm;
+
+                /* traverse all VM */
+                for_each_node_child(vm_child)
+                {
+                    rt_size_t p_size, index;
+                    rt_uint32_t u32_val, *u32_ptr, vmid;
+
+                    hyp_debug("1");
+                }
+            }
+        }
+        fdt_free_dtb_list(dtb_node_list);
+        hyp_info("VM info load from device tree over");
+    }
+
+    return ret;
+}
+
 int rt_hyp_init(void)
 {
     rt_hyp.total_vm = 0;
@@ -40,9 +84,8 @@ int rt_hyp_init(void)
     rt_hyp.phy_mem_size = HYP_MEM_SIZE;
     rt_hyp.phy_mem_used = 0;
 
-    rt_hyp.next_vm_idx = 0;
     bitmap_init(&rt_hyp.vm_bitmap);
-    rt_hyp.curr_vm_idx = MAX_VM_NUM;
+    rt_hyp.curr_vm = MAX_VM_NUM;
     hyp_info("Support %d VMs max", MAX_VM_NUM);
 
 #ifdef RT_USING_SMP
@@ -54,7 +97,7 @@ int rt_hyp_init(void)
 
     rt_hyp.arch.hyp_init_ok = RT_FALSE;
 
-    rt_hyp.curr_vc_idx = MAX_VM_NUM;    /* MAX_VM_NUM == Host using UART */
+    rt_hyp.curr_vc = MAX_VM_NUM;    /* MAX_VM_NUM == Host using UART */
 
     hyp_info("rt_hyp init OK");
     return RT_EOK;
@@ -224,7 +267,7 @@ rt_err_t create_vm(int argc, char **argv)
         bitmap_set_bit(&rt_hyp.vm_bitmap, vm_idx);
     }
 
-    new_vm = (vm_t)rt_malloc(sizeof(struct vm));
+    new_vm = &rt_hyp.vms[vm_idx];
     hyp_info("NEW_VM: 0x%08x - 0x%08x", new_vm, new_vm + sizeof(struct vm));
     mm = (struct mm_struct *)rt_malloc(sizeof(struct mm_struct));
     vgic = vgic_create();
@@ -284,8 +327,7 @@ rt_err_t create_vm(int argc, char **argv)
     rt_hw_spin_lock(&rt_hyp.hyp_lock);
 #endif
 
-    rt_hyp.vms[vm_idx] = new_vm;
-    rt_hyp.curr_vm_idx = vm_idx;
+    rt_hyp.curr_vm = vm_idx;
     rt_hyp.total_vm++;
 
 #ifdef RT_USING_SMP
@@ -316,7 +358,7 @@ void pick_vm(int argc, char **argv)
 #ifdef RT_USING_SMP
             rt_hw_spin_lock(&rt_hyp.hyp_lock);
 #endif
-            rt_hyp.curr_vm_idx = vm_idx;
+            rt_hyp.curr_vm = vm_idx;
 #ifdef RT_USING_SMP
             rt_hw_spin_unlock(&rt_hyp.hyp_lock);
 #endif 
@@ -331,10 +373,7 @@ void pick_vm(int argc, char **argv)
     rt_hw_spin_lock(&rt_hyp.hyp_lock);
 #endif
 
-    if (rt_hyp.vms[vm_idx])
-        rt_hyp.curr_vm_idx = vm_idx;
-    else
-        hyp_err("%dth VM: Out of scope", vm_idx);
+    rt_hyp.curr_vm = vm_idx;
 
 #ifdef RT_USING_SMP
     rt_hw_spin_unlock(&rt_hyp.hyp_lock);
@@ -343,7 +382,7 @@ void pick_vm(int argc, char **argv)
 
 static rt_err_t vm_idx_check(void)
 {
-    rt_uint64_t vm_idx = rt_hyp.curr_vm_idx;
+    rt_uint64_t vm_idx = rt_hyp.curr_vm;
     rt_uint64_t ret = RT_EOK;
 
     if (vm_idx < 0 || vm_idx >= MAX_VM_NUM)
@@ -366,8 +405,8 @@ rt_err_t run_vm(void)
     if (ret)
         return ret;
 
-    rt_uint64_t vm_idx = rt_hyp.curr_vm_idx;
-    vm_t vm = rt_hyp.vms[vm_idx];
+    rt_uint64_t vm_idx = rt_hyp.curr_vm;
+    vm_t vm = &rt_hyp.vms[vm_idx];
     if (vm)
     {
         switch (vm->status)
@@ -431,8 +470,8 @@ rt_err_t pause_vm(void)
     if (ret)
         return ret;
 
-    rt_uint64_t vm_idx = rt_hyp.curr_vm_idx;
-    vm_t vm = rt_hyp.vms[vm_idx];
+    rt_uint64_t vm_idx = rt_hyp.curr_vm;
+    vm_t vm = &rt_hyp.vms[vm_idx];
     if (vm)
         vm_suspend(vm);
     else
@@ -454,8 +493,8 @@ rt_err_t halt_vm(void)
     if (ret)
         return ret;
 
-    rt_uint64_t vm_idx = rt_hyp.curr_vm_idx;
-    vm_t vm = rt_hyp.vms[vm_idx];
+    rt_uint64_t vm_idx = rt_hyp.curr_vm;
+    vm_t vm = &rt_hyp.vms[vm_idx];
     vm_shutdown(vm);
 
     return RT_EOK;
@@ -468,15 +507,15 @@ rt_err_t delete_vm(void)
     if (ret)
         return ret;
 
-    rt_uint8_t vm_idx = rt_hyp.curr_vm_idx;
-    if (rt_hyp.vms[vm_idx])
+    rt_uint8_t vm_idx = rt_hyp.curr_vm;
+    if (rt_hyp.vms[vm_idx].status == VM_STAT_IDLE)
     {
         /* halt the VM and free VM memory */
         rt_err_t ret = halt_vm();
         if (!ret)
         {
-            struct vm *del_vm = rt_hyp.vms[vm_idx];
-            rt_hyp.vms[vm_idx] = RT_NULL;
+            struct vm *del_vm = &rt_hyp.vms[vm_idx];
+            rt_hyp.vms[vm_idx].status = VM_STAT_IDLE;
             vm_free(del_vm);
             bitmap_clr_bit(&rt_hyp.vm_bitmap, vm_idx);
             hyp_info("%dth VM: Delete success", vm_idx);
@@ -547,10 +586,10 @@ void list_vm(void)
 
     for (rt_size_t i = 0; i < MAX_VM_NUM; i++)
     {
-        vm_t vm = rt_hyp.vms[i];
+        vm_t vm = &rt_hyp.vms[i];
         if (vm)
         {
-            if (i == rt_hyp.curr_vm_idx)
+            if (i == rt_hyp.curr_vm)
                 fmt = "\033[34m%-*.*s %6.3d %-8.s %-10s %4.1d %8d\n\033[0m";
             else
                 fmt = "%-*.*s %6.3d %-8.s %-10s %4.1d %8d\n";
@@ -570,14 +609,14 @@ void print_el(void)
 
 void print_virq(int vm_idx)
 {
-    if (rt_hyp.vms[vm_idx] && rt_hyp.vms[vm_idx]->vgic->gicd)
+    if (rt_hyp.vms[vm_idx].vgic->gicd)
     {
         rt_kprintf("__ %dth VM __\nvINTID = %d\npINTID = %d\nenable = %d\nhw     = %d\n\n",
             vm_idx,
-            rt_hyp.vms[vm_idx]->vgic->gicd->virqs[1].vINIID,
-            rt_hyp.vms[vm_idx]->vgic->gicd->virqs[1].pINTID,
-            rt_hyp.vms[vm_idx]->vgic->gicd->virqs[1].enable,
-            rt_hyp.vms[vm_idx]->vgic->gicd->virqs[1].hw);
+            rt_hyp.vms[vm_idx].vgic->gicd->virqs[1].vINIID,
+            rt_hyp.vms[vm_idx].vgic->gicd->virqs[1].pINTID,
+            rt_hyp.vms[vm_idx].vgic->gicd->virqs[1].enable,
+            rt_hyp.vms[vm_idx].vgic->gicd->virqs[1].hw);
     }
 }
 

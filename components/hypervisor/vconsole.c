@@ -72,11 +72,11 @@ rt_err_t vc_create(struct vm *vm)
  
 static vdev_t get_curr_vc(void)
 {
-    if (rt_hyp.curr_vc_idx != MAX_VM_NUM)
+    if (rt_hyp.curr_vc != MAX_VM_NUM)
     {
         struct rt_list_node *pos;
 
-        rt_list_for_each(pos, &rt_hyp.vms[rt_hyp.curr_vc_idx]->dev_list)
+        rt_list_for_each(pos, &rt_hyp.vms[rt_hyp.curr_vc].dev_list)
         {
             vdev_t vdev = rt_list_entry(pos, struct vdev, node);
 
@@ -91,7 +91,7 @@ static vdev_t get_curr_vc(void)
 /* Justice whether this VM take console now */
 rt_bool_t is_vm_take_console(struct vm *vm)
 {
-    return (rt_hyp.curr_vc_idx == vm->id);
+    return (rt_hyp.curr_vc == vm->id);
 }
 
 void vc_detach(vdev_t vc)
@@ -102,7 +102,7 @@ void vc_detach(vdev_t vc)
         finsh_delete_device();  /* clear finsh device and reset flag */
         rt_device_close(vc->dev);
         vc->is_open = RT_FALSE;
-        rt_hyp.curr_vc_idx = MAX_VM_NUM;
+        rt_hyp.curr_vc = MAX_VM_NUM;
         vgic_virq_umount(vc->vm, PL011_UART0_IRQNUM);
     }
 
@@ -132,7 +132,7 @@ void vc_attach(struct vm *vm)
         if (rt_strcmp(vdev->dev->parent.name, RT_CONSOLE_DEVICE_NAME) == 0)
         {
             vdev->is_open = RT_TRUE;
-            rt_hyp.curr_vc_idx = vm->id;
+            rt_hyp.curr_vc = vm->id;
 
             /* Allocate device to VM then mount vIRQ */
             vgic_virq_mount(vm, PL011_UART0_IRQNUM);
@@ -189,19 +189,19 @@ rt_err_t attach_vm(int argc, char **argv)
                 return -RT_EINVAL;
             }
 
-            if (rt_hyp.vms[vm_idx] == RT_NULL)
+            if (rt_hyp.vms[vm_idx].status == VM_STAT_IDLE)
             {
                 hyp_err("%dth VM: Not use, can't attach it", vm_idx);
                 return -RT_EINVAL;
             }
 
-            if (rt_hyp.vms[vm_idx]->status != VM_STAT_ONLINE)
+            if (rt_hyp.vms[vm_idx].status != VM_STAT_ONLINE)
             {
                 hyp_info("%d th VM: Not working, can't attach it", vm_idx);
                 return -RT_EINVAL;;
             }
 
-            vc_attach(rt_hyp.vms[vm_idx]);
+            vc_attach(&rt_hyp.vms[vm_idx]);
             break;
         case '?':
             hyp_err("%s: %s", argv[0], options.errmsg);

@@ -17,6 +17,7 @@
 #define THREAD_TIMESLICE    5
 
 #define MAX_VCPU_NUM    4      /* per vm */
+#define MAX_DEVS_NUM    4      /* per vm */
 #define VM_NAME_SIZE    16
 #define L1_CACHE_BYTES  64
 
@@ -59,12 +60,48 @@ typedef struct vcpu *vcpu_t;
 
 enum 
 {
-    VM_STAS_IDLE = 0,
+    VM_STAT_IDLE = 0,
     VM_STAT_OFFLINE,
     VM_STAT_ONLINE,
     VM_STAT_SUSPEND,
     VM_STAT_NEVER_RUN,
     VM_STAT_UNKNOWN,
+};
+
+struct device_info
+{
+    rt_uint64_t paddr;
+    rt_uint64_t vaddr;
+    rt_uint64_t size;
+    rt_uint64_t interrupts;
+};
+
+struct vm_info 
+{
+    /* OS image info */
+    rt_uint64_t img_addr;
+    rt_uint64_t img_size;
+    rt_uint64_t img_entry;
+    rt_uint64_t img_type;
+
+    /* CPU info      */
+    rt_uint32_t affinity[MAX_VCPU_NUM];
+    rt_uint32_t nr_vcpus;
+    
+    /* Memory info   */
+    rt_uint64_t va_addr;
+    rt_uint64_t va_size;
+    rt_uint32_t pa_addr;
+    rt_uint32_t pa_size;
+
+    /* vGIC: GICD, GICR */
+    rt_uint64_t gicd_addr;
+    rt_uint64_t gicr_addr;
+    rt_uint32_t maintenance_id;
+
+    /* Device: UART */
+    struct device_info devs[MAX_DEVS_NUM];
+    rt_uint32_t dev_num;
 };
 
 struct vm
@@ -74,6 +111,7 @@ struct vm
     
     char name[VM_NAME_SIZE];
     struct mm_struct *mm;    /* userspace tied to this vm */
+    struct vm_info info;
     const struct os_desc *os;
     rt_uint8_t os_idx;
 
