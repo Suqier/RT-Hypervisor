@@ -239,7 +239,6 @@ rt_err_t create_vm(int argc, char **argv)
     rt_err_t ret = RT_EOK;
     rt_uint8_t vm_idx, os_idx;
     vm_t new_vm;
-    struct mm_struct *mm;
     vgic_t vgic;
     char *arg;
     int opt;
@@ -269,23 +268,20 @@ rt_err_t create_vm(int argc, char **argv)
 
     new_vm = &rt_hyp.vms[vm_idx];
     hyp_info("NEW_VM: 0x%08x - 0x%08x", new_vm, new_vm + sizeof(struct vm));
-    mm = (struct mm_struct *)rt_malloc(sizeof(struct mm_struct));
     vgic = vgic_create();
-    if (new_vm == RT_NULL || mm == RT_NULL || vgic == RT_NULL)
+    if (new_vm == RT_NULL || vgic == RT_NULL)
     {
         hyp_err("Allocate memory for new VM failure");
         rt_free(new_vm);
-        rt_free(mm);
         vgic_free(vgic);
         return -RT_ENOMEM;
     }
     else
     {
         rt_memset((void *)new_vm, 0, sizeof(struct vm));
-        rt_memset((void *)mm, 0, sizeof(struct mm_struct));
+        rt_memset((void *)&new_vm->mm, 0, sizeof(struct mm_struct));
 
-        new_vm->mm = mm;
-        mm->vm = new_vm;
+        new_vm->mm.vm = new_vm;
         new_vm->vgic = vgic;
     }
 
@@ -380,20 +376,6 @@ void pick_vm(int argc, char **argv)
 #endif
 }
 
-static rt_err_t vm_idx_check(void)
-{
-    rt_uint64_t vm_idx = rt_hyp.curr_vm;
-    rt_uint64_t ret = RT_EOK;
-
-    if (vm_idx < 0 || vm_idx >= MAX_VM_NUM)
-    {
-        hyp_err("%dth VM: Not exist", vm_idx);
-        ret = -RT_EINVAL;
-    }
-
-    return ret;
-}
-
 rt_err_t run_vm(void)
 {
     /* 
@@ -401,10 +383,6 @@ rt_err_t run_vm(void)
      * then changes VM status and schedules vCPUs.
      */
     rt_uint64_t ret = RT_EOK;
-    ret = vm_idx_check();
-    if (ret)
-        return ret;
-
     rt_uint64_t vm_idx = rt_hyp.curr_vm;
     vm_t vm = &rt_hyp.vms[vm_idx];
     if (vm)
@@ -466,10 +444,6 @@ rt_err_t pause_vm(void)
      * Changes VM status and stops schedule vCPUs.
      */
     rt_uint64_t ret = RT_EOK;
-    ret = vm_idx_check();
-    if (ret)
-        return ret;
-
     rt_uint64_t vm_idx = rt_hyp.curr_vm;
     vm_t vm = &rt_hyp.vms[vm_idx];
     if (vm)
@@ -485,28 +459,15 @@ rt_err_t pause_vm(void)
 
 rt_err_t halt_vm(void)
 {
-    /* 
-     * Stop running VM and turn VM's status down. 
-     */
-    rt_uint64_t ret = RT_EOK;
-    ret = vm_idx_check();
-    if (ret)
-        return ret;
-
+    /* Stop running VM and turn VM's status down */
     rt_uint64_t vm_idx = rt_hyp.curr_vm;
     vm_t vm = &rt_hyp.vms[vm_idx];
     vm_shutdown(vm);
-
     return RT_EOK;
 }
 
 rt_err_t delete_vm(void)
 {
-    rt_uint64_t ret = RT_EOK;
-    ret = vm_idx_check();
-    if (ret)
-        return ret;
-
     rt_uint8_t vm_idx = rt_hyp.curr_vm;
     if (rt_hyp.vms[vm_idx].status == VM_STAT_IDLE)
     {
@@ -596,7 +557,7 @@ void list_vm(void)
             
             rt_kprintf(fmt, maxlen, VM_NAME_SIZE, vm->name, vm->id,
                     vm_stat_str[vm->status], os_type_str[vm->os->img.type],
-                    vm->os->cpu.num, vm->mm->mem_size);
+                    vm->os->cpu.num, vm->mm.mem_size);
         }
     }
 }

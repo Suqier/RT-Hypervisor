@@ -110,7 +110,7 @@ struct vm
     rt_uint16_t status;
     
     char name[VM_NAME_SIZE];
-    struct mm_struct *mm;    /* userspace tied to this vm */
+    struct mm_struct mm;    /* userspace tied to this vm */
     struct vm_info info;
     const struct os_desc *os;
     rt_uint8_t os_idx;

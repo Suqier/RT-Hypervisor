@@ -267,7 +267,7 @@ rt_err_t os_img_load(vm_t vm)
 
     do
     {
-        ret = s2_translate(vm->mm, dst_va, &dst_pa);
+        ret = s2_translate(&vm->mm, dst_va, &dst_pa);
         if (ret)
         {
             hyp_err("%dth VM: Load OS img failure", vm->id);
@@ -298,8 +298,8 @@ void vm_config_init(vm_t vm, rt_uint8_t vm_idx)
     rt_hw_spin_lock_init(&vm->vm_lock);
 #endif
     
-    vm->mm->mem_size = vm->os->mem.size;
-    vm->mm->mem_used = 0;
+    vm->mm.mem_size = vm->os->mem.size;
+    vm->mm.mem_used = 0;
     vm->nr_vcpus = vm->os->cpu.num;
     rt_list_init(&vm->dev_list);
 }
@@ -319,12 +319,12 @@ rt_err_t vm_init(vm_t vm)
         return -RT_ENOMEM;
     }
 
-    ret = vm_mm_struct_init(vm->mm);
+    ret = vm_mm_struct_init(&vm->mm);
     if (ret)
         return ret;
 
     /* memory map when vm init */
-    ret = vm_memory_init(vm->mm);
+    ret = vm_memory_init(&vm->mm);
     if (ret)
         return ret;
 

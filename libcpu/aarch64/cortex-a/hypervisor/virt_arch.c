@@ -13,6 +13,7 @@
 #include "stage2.h"
 #include "virt_arch.h"
 #include "hyp_debug.h"
+#include "vm.h"
 
 rt_bool_t arm_vhe_supported(void)
 {
@@ -55,7 +56,7 @@ void __flush_all_tlb(void)
 
 void flush_vm_all_tlb(vm_t vm)
 {
-    struct mm_struct *mm = vm->mm;
+    struct mm_struct *mm = &vm->mm;
     rt_uint64_t vttbr = ((rt_uint64_t)mm->pgd_tbl & S2_VA_MASK) 
                       | ((rt_uint64_t)vm->id << VMID_SHIFT);
 
@@ -101,7 +102,7 @@ void vcpu_state_init(struct vcpu *vcpu)
     c->sys_regs[_SCTLR_EL1]   = 0x00C50078;
 
     vm->arch->vtcr_el2  = get_vtcr_el2();
-    vm->arch->vttbr_el2 = ((rt_uint64_t)vm->mm->pgd_tbl & S2_VA_MASK) 
+    vm->arch->vttbr_el2 = ((rt_uint64_t)vm->mm.pgd_tbl & S2_VA_MASK) 
                         | ((rt_uint64_t)vm->id << VMID_SHIFT);
 }
 

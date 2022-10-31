@@ -13,6 +13,7 @@
 #include "stage2.h"
 #include "virt_arch.h"
 #include "hyp_debug.h"
+#include "vm.h"
 
 /* 
  * VM Page Table 
