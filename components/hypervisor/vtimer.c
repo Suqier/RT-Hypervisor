@@ -13,6 +13,7 @@
 #include "vgic.h"
 #include "vtimer.h"
 #include "trap.h"
+#include "hyp_debug.h"
 
 void vtimer_ctxt_init(vt_ctxt_t vtimer_ctxt, vcpu_t vcpu)
 {
@@ -39,7 +40,7 @@ void vtimer_ctxt_init(vt_ctxt_t vtimer_ctxt, vcpu_t vcpu)
 void ptimer_timeout_function(void *parameter)
 {
     /* inject vIRQ function */
-    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
+    hyp_debug("%s, %d", __FUNCTION__, __LINE__);
 
     vt_ctxt_t vtc = (vt_ctxt_t)parameter;
 
@@ -48,7 +49,7 @@ void ptimer_timeout_function(void *parameter)
 
     vcpu->vm->vgic->ops->inject(vcpu, virq);
 }
-
+ 
 void vtimer_timeout_function(void *parameter) {}
 
 rt_err_t vtimer_ctxt_create(vcpu_t vcpu)
@@ -58,7 +59,7 @@ rt_err_t vtimer_ctxt_create(vcpu_t vcpu)
     if (vt_ctxt == RT_NULL)
     {
         rt_free(vt_ctxt);
-        rt_kprintf("[Error] Create vTimer failure for vcpu-%d.\n", vcpu->id);
+        hyp_err("Create vTimer failure for vcpu-%d", vcpu->id);
         return -RT_ENOMEM;
     }
     else

@@ -90,7 +90,7 @@ struct vm
     /* vGIC */
     struct vgic *vgic;
 
-    /* vTimer | TBD */
+    /* vTimer | @TODO */
     
     /* For TTY and so on */
     rt_list_t dev_list;

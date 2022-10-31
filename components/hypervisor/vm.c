@@ -19,6 +19,7 @@
 #include "vgic.h"
 #include "vm.h"
 #include "os.h"
+#include "hyp_debug.h"
 
 extern struct hypervisor rt_hyp;
 
@@ -61,7 +62,7 @@ vcpu_t vcpu_create(vm_t vm, rt_uint32_t vcpu_id)
     arch = (struct vcpu_arch*)rt_malloc(sizeof(struct vcpu_arch));
     if (vcpu == RT_NULL || arch == RT_NULL)
     {
-        rt_kprintf("[Error] create %dth vCPU failure.\n", vcpu_id);
+        hyp_err("create %dth vCPU failure", vcpu_id);
         return RT_NULL;
     }
 
@@ -118,12 +119,12 @@ rt_err_t vcpus_create(vm_t vm)
                     continue;
             }
 
-            rt_kprintf("[Error] %dth VM: Create %dth vCPU failure\n", vm->id, i);
+            hyp_err("%dth VM: Create %dth vCPU failure", vm->id, i);
             return -RT_ENOMEM;
         }
     }
 
-    rt_kprintf("[Info] %dth VM: Create %d vCPUs success\n", vm->id, vm->nr_vcpus);
+    hyp_info("%dth VM: Create %d vCPUs success", vm->id, vm->nr_vcpus);
     return RT_EOK;
 }
 
@@ -148,7 +149,7 @@ void vcpu_go(vcpu_t vcpu)
 
     case VCPU_STATUS_UNKNOWN:
     default:
-        rt_kprintf("[Error] %dth VM: Run %dth vCPU failure\n", vcpu->vm->id, vcpu->id); 
+        hyp_err("%dth VM: Run %dth vCPU failure", vcpu->vm->id, vcpu->id); 
         break;
     }
 }
@@ -171,7 +172,7 @@ void vcpu_suspend(vcpu_t vcpu)
 
     case VCPU_STATUS_UNKNOWN:
     default:
-        rt_kprintf("[Error] %dth VM: Suspend %dth vCPU failure\n", vcpu->vm->id, vcpu->id);
+        hyp_err("%dth VM: Suspend %dth vCPU failure", vcpu->vm->id, vcpu->id);
         break;
     }
 }
@@ -179,7 +180,7 @@ void vcpu_suspend(vcpu_t vcpu)
 void vcpu_shutdown(vcpu_t vcpu)
 {
     /* Turn vcpu->thread into RT_THREAD_CLOSE status and free vCPU resource. */
-    rt_kprintf("[Info] %dth VM: Shutdown %dth vCPU\n", vcpu->vm->id, vcpu->id);
+    hyp_info("%dth VM: Shutdown %dth vCPU", vcpu->vm->id, vcpu->id);
     if (vcpu->status == VCPU_STATUS_ONLINE)
     {
         vcpu->status = VCPU_STATUS_OFFLINE;
@@ -194,10 +195,7 @@ void vcpu_shutdown(vcpu_t vcpu)
         rt_thread_delete(vcpu->tid);
     }
     else
-    {
-        rt_kprintf("[Error] Shutdown %dth vCPU failure for %dth VM\n", 
-            vcpu->id, vcpu->vm->id);
-    }
+        hyp_err("%dth VM: Shutdown %dth vCPU failure", vcpu->id, vcpu->vm->id);
     
     vcpu->status = VCPU_STATUS_UNKNOWN; /* vCPU fault. */
 }
@@ -205,7 +203,7 @@ void vcpu_shutdown(vcpu_t vcpu)
 void vcpu_fault(vcpu_t vcpu)
 {
     /* Report Error, dump vCPU register info and shutdown vCPU. */
-    rt_kprintf("[Fault] %dth VM: %dth vCPU Fault\n", vcpu->vm->id, vcpu->id);
+    hyp_err("%dth VM: %dth vCPU Fault\n", vcpu->vm->id, vcpu->id);
     vcpu_regs_dump(vcpu);
     vcpu_shutdown(vcpu);
 }
@@ -265,7 +263,7 @@ rt_err_t os_img_load(vm_t vm)
         ret = s2_translate(vm->mm, dst_va, &dst_pa);
         if (ret)
         {
-            rt_kprintf("[Error] %dth VM: Load OS img failure\n", vm->id);
+            hyp_err("%dth VM: Load OS img failure", vm->id);
             return ret;
         }
 
@@ -279,14 +277,14 @@ rt_err_t os_img_load(vm_t vm)
         dst_va += copy_size;
     } while (count > 0);
 
-    rt_kprintf("[Info] %dth VM: Load OS img OK\n", vm->id);
+    hyp_info("%dth VM: Load OS image OK", vm->id);
     return RT_EOK;
 }
 
 void vm_config_init(vm_t vm, rt_uint8_t vm_idx)
 {
     vm->id = vm_idx;
-    rt_kprintf("[Info] Allocate VM id is %03d\n", vm_idx);
+    hyp_info("Allocate VM id is %03d", vm_idx);
     vm->status = VM_STATUS_NEVER_RUN;
 
 #ifdef RT_USING_SMP
@@ -310,7 +308,7 @@ rt_err_t vm_init(vm_t vm)
     vm->arch =  (struct vm_arch *)rt_malloc(sizeof(struct vm_arch));
     if (vm->vcpus == RT_NULL || vm->arch == RT_NULL)
     {
-        rt_kputs("[Error] Allocate memory for VM's pointers failure\n");
+        hyp_err("Allocate memory for VM's pointers failure");
         return -RT_ENOMEM;
     }
 
@@ -331,7 +329,7 @@ rt_err_t vm_init(vm_t vm)
     
     vc_create(vm);
     
-    /* allocate memory for device. TBD */
+    /* allocate memory for device. @TODO */
     ret = os_img_load(vm);
     if (ret)
         return ret;
@@ -342,14 +340,14 @@ rt_err_t vm_init(vm_t vm)
 
 void vm_go(vm_t vm)
 {
-    /* consider VM status? TBD */
+    /* consider VM status? @TODO */
     // vc_attach(vm);
 
     vcpu_t vcpu = vm->vcpus[0];   /* main core */
     if (vcpu)
         vcpu_go(vcpu);
     else
-        rt_kprintf("[Error] %dth VM: Start failure.\n", vm->id);
+        hyp_err("%dth VM: Start failure", vm->id);
 }
 
 void vm_suspend(struct vm * vm)
@@ -367,7 +365,7 @@ void vm_suspend(struct vm * vm)
         ret = rt_thread_suspend(vcpu->tid);
         if (ret)
         {
-            rt_kprintf("[Error] Pause VM failure at %dth vCPU.\n", i);
+            hyp_err("Pause VM failure at %dth vCPU", i);
             vm->status = VM_STATUS_UNKNOWN;
             return;
         }
@@ -389,9 +387,7 @@ void vm_shutdown(vm_t vm)
             rt_thread_delete(vcpu->tid);
         }
 
-        /* 
-         * and release VM memory resource. TBD 
-         */
+        /* and release VM memory resource. @TODO */
 
         vm->status = VM_STATUS_OFFLINE;
     }
@@ -405,5 +401,5 @@ void vm_free(vm_t vm)
     for (rt_size_t i = 0; i < vm->nr_vcpus; i++)
         vcpu_free(vm->vcpus[i]);
 
-    /* free other resource, like memory resouece & TBD */
+    /* free other resource, like memory resouece & @TODO */
 }

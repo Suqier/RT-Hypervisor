@@ -17,6 +17,7 @@
 #include "hypervisor.h"
 #include "vgic.h"
 #include "os.h"
+#include "hyp_debug.h"
 
 extern struct hypervisor rt_hyp;
 
@@ -61,7 +62,7 @@ rt_err_t vc_create(struct vm *vm)
 
     if (vc == RT_NULL)
     {
-        rt_kputs("[Error] Alloc memory for vConsole failure\n");
+        hyp_err("Allocate memory for vConsole failure");
         return -RT_ENOMEM;
     }
 
@@ -118,7 +119,7 @@ void vc_attach(struct vm *vm)
     if (vc == RT_NULL)  /* Host console using UART */
     {
         /* Close Host console */
-        rt_kprintf("[Info] Close Host console, Change to %dth VM\n", vm->id);
+        hyp_info("Close Host console, Change to %dth VM", vm->id);
         rt_console_close_device();
     }
     else    /* It's someone VM vConsole using UART */
@@ -139,7 +140,7 @@ void vc_attach(struct vm *vm)
         }
     }
 
-    rt_kprintf("[Error] %dth VM: no device as %s", vm->id, RT_CONSOLE_DEVICE_NAME);
+    hyp_err("%dth VM: no device as %s", vm->id, RT_CONSOLE_DEVICE_NAME);
     return;
 }
 
@@ -184,29 +185,26 @@ rt_err_t attach_vm(int argc, char **argv)
             vm_idx = strtol((const char *)options.optarg, NULL, 10);
             if(vm_idx < 0 || vm_idx >= MAX_VM_NUM)
             {
-                rt_kprintf("[Error] %d-th VM: Out of scope, can't attach it\n", 
-                                vm_idx);
+                hyp_err("%dth VM: Out of scope, can't attach it", vm_idx);
                 return -RT_EINVAL;
             }
 
             if (rt_hyp.vms[vm_idx] == RT_NULL)
             {
-                rt_kprintf("[Error] %d-th VM: Not use, can't attach it\n", 
-                                vm_idx);
+                hyp_err("%dth VM: Not use, can't attach it", vm_idx);
                 return -RT_EINVAL;
             }
 
             if (rt_hyp.vms[vm_idx]->status != VM_STATUS_ONLINE)
             {
-                rt_kprintf("[Info] %d th VM: Not working, can't attach it\n", 
-                                vm_idx);
+                hyp_info("%d th VM: Not working, can't attach it", vm_idx);
                 return -RT_EINVAL;;
             }
 
             vc_attach(rt_hyp.vms[vm_idx]);
             break;
         case '?':
-            rt_kprintf("[Error] %s: %s.\n", argv[0], options.errmsg);
+            hyp_err("%s: %s", argv[0], options.errmsg);
             return -RT_ERROR;
         }
     }

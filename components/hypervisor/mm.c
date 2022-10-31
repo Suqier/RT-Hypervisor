@@ -12,6 +12,7 @@
 
 #include "os.h"
 #include "mm.h"
+#include "hyp_debug.h"
 
 extern void *alloc_vm_pgd(rt_uint8_t vm_idx);
 
@@ -20,7 +21,7 @@ struct vm_area *vm_area_init(struct mm_struct *mm, rt_uint64_t start, rt_uint64_
     struct vm_area *va = (struct vm_area *)rt_malloc(sizeof(struct vm_area));
     if (!va)
     {
-        rt_kprintf("[Error] Allocate memory for vm_area failure.\n");
+        hyp_err("Allocate memory for vm_area failure");
         return RT_NULL;
     }
 
@@ -48,9 +49,9 @@ rt_err_t vm_mm_struct_init(struct mm_struct *mm)
     else
         mm->pgd_tbl = (pud_t *)(MMU_TYPE_TABLE 
                     | ((rt_uint64_t)mm->pgd_tbl & TABLE_ADDR_MASK));
-    // rt_kprintf("[Info] mm->pgd_tbl&attr=0x%08x\n", mm->pgd_tbl);
+    hyp_debug("mm->pgd_tbl&attr=0x%08x", mm->pgd_tbl);
     /* 
-     * TBD
+     * @TODO
      * We adjust ipa_start and ipa_end by getting OS img information.
      * Currently only supports a memory case.
      */
@@ -62,7 +63,7 @@ rt_err_t vm_mm_struct_init(struct mm_struct *mm)
     else
         rt_list_insert_after(&(mm->vm_area_used), &(va->node));
 
-    rt_kprintf("[Info] %dth VM: Init mm_struct success\n", vm->id);
+    hyp_info("%dth VM: Init mm_struct success", vm->id);
     return RT_EOK;
 }
 
@@ -76,7 +77,7 @@ mem_block_t *alloc_mem_block(void)
     mb->ptr = rt_malloc_align(MEM_BLOCK_SIZE, MEM_BLOCK_SIZE);  
     if (mb->ptr == RT_NULL)
     {
-        rt_kprintf("[Error] Allocate mem_block failure.\n");
+        hyp_err("Allocate mem_block failure");
         return RT_NULL;
     }
     mb->next = RT_NULL;
@@ -93,7 +94,7 @@ rt_err_t alloc_vm_memory(struct mm_struct *mm)
     rt_uint64_t start = RT_ALIGN_DOWN(va_start, MEM_BLOCK_SIZE);
     if (start != va_start)
     {
-		rt_kprintf("[Error] MEM 0x%08x not mem_block aligned\n", va_start);
+		hyp_err("MEM 0x%08x not mem_block aligned\n", va_start);
 		return -RT_EINVAL;
     }
 
@@ -113,7 +114,7 @@ rt_err_t alloc_vm_memory(struct mm_struct *mm)
         mm->mem_used += MEM_BLOCK_SIZE;
     }
 
-    rt_kprintf("[Info] %dth VM: Alloc %dMB memory\n", vm->id, MB(mm->mem_used));
+    hyp_info("%dth VM: Alloc %d MB memory", vm->id, MB(mm->mem_used));
     
     return RT_EOK;
 }
@@ -132,14 +133,14 @@ rt_err_t create_vm_mmap(struct mm_struct *mm, struct mem_desc *desc)
     mmap_size = desc->vaddr_end - desc->vaddr_start;
     if (mmap_size == 0)
     {
-        rt_kprintf("[Error] Memory map size = 0\n");
+        hyp_err("Memory map size = 0");
         return -RT_EINVAL;    
     }
 
     /* map memory: build stage 2 page table and translate GPA to HPA */
     ret = s2_map(mm, desc);
     /*
-     * TBD 
+     * @TODO 
      * if (ret == RT_EOK)
      * ret = iommu_iotlb_flush_all(vm);
      */

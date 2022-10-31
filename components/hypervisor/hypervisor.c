@@ -12,6 +12,7 @@
 #include "hypervisor.h"
 #include "switch.h"
 #include "os.h"
+#include "hyp_debug.h"
 
 #include <vgic.h>
 
@@ -42,7 +43,7 @@ int rt_hyp_init(void)
     rt_hyp.next_vm_idx = 0;
     bitmap_init(&rt_hyp.vm_bitmap);
     rt_hyp.curr_vm_idx = MAX_VM_NUM;
-    rt_kprintf("[Info] Support %d VMs max.\n", MAX_VM_NUM);
+    hyp_info("Support %d VMs max", MAX_VM_NUM);
 
 #ifdef RT_USING_SMP
     rt_hw_spin_lock_init(&rt_hyp.hyp_lock);
@@ -55,7 +56,7 @@ int rt_hyp_init(void)
 
     rt_hyp.curr_vc_idx = MAX_VM_NUM;    /* MAX_VM_NUM == Host using UART */
 
-    rt_kprintf("[Info] RT_H: rt_hyp init OK.\n");
+    hyp_info("rt_hyp init OK");
     return RT_EOK;
 }
 INIT_APP_EXPORT(rt_hyp_init);
@@ -93,7 +94,7 @@ static void __set_ipa_size(void)
 static void __set_vmid_bits(void)
 {
     rt_hyp.arch.vmid_bits = arm_vmid_bits();
-    rt_kprintf("[Info] VM id support %d bits.\n", rt_hyp.arch.vmid_bits);
+    hyp_info("VM id support %d bits", rt_hyp.arch.vmid_bits);
 }
 
 /* per cpu should run this function to enable hyp mode. */
@@ -105,7 +106,7 @@ static void __cpu_hyp_enable_entry(void* parameter)
     rt_ubase_t currEL = rt_hw_get_current_el();
     if (currEL != 2)
     {
-        rt_kprintf("[Error] %dth CPU currentEL is %d.\n", *i, currEL);
+        hyp_err("%dth CPU currentEL is %d", *i, currEL);
         return;
     }
 
@@ -143,10 +144,10 @@ static rt_err_t __init_subsystems(void)
         cpu_hyp &= rt_hyp.arch.cpu_hyp_enabled[i];
 
     if (cpu_hyp)
-        rt_kprintf("[Info] All cpu hyp enabled.\n");
+        hyp_info("All CPU hyp enabled");
     else
     {
-        rt_kprintf("[Error] cpu hyp disable.\n");
+        hyp_err("CPU hyp disable");
         return -RT_ERROR;
     }
     
@@ -172,16 +173,13 @@ static rt_err_t __hyp_arch_init(void)
 
 rt_err_t rt_hypervisor_init(void)
 {
-    rt_kprintf("[Info] Start RT-Hypervisor init\n");
+    rt_scheduler_sethook(switch_hook);
 
-    rt_err_t ret;
-    ret = __hyp_arch_init();
+    rt_err_t ret = __hyp_arch_init();
     if (ret != RT_EOK)
         return ret;
 
-    rt_scheduler_sethook(switch_hook);
-
-    rt_kprintf("[Info] RT-Hypervisor init over\n");
+    hyp_info("RT-Hypervisor init over");
     return ret;
 }
 
@@ -217,7 +215,7 @@ rt_err_t create_vm(int argc, char **argv)
     /* new vm: allcate memory and index */
     if (rt_hyp.total_vm == MAX_VM_NUM)
     {
-        rt_kprintf("[Error] The number of VMs is full.\n");
+        hyp_err("VMs Full, no more idle VM can use");
         return -RT_ERROR;
     }
     else
@@ -227,12 +225,12 @@ rt_err_t create_vm(int argc, char **argv)
     }
 
     new_vm = (vm_t)rt_malloc(sizeof(struct vm));
-    rt_kprintf("0x%08x - 0x%08x\n", new_vm, new_vm + sizeof(struct vm));
+    hyp_info("NEW_VM: 0x%08x - 0x%08x", new_vm, new_vm + sizeof(struct vm));
     mm = (struct mm_struct *)rt_malloc(sizeof(struct mm_struct));
     vgic = vgic_create();
     if (new_vm == RT_NULL || mm == RT_NULL || vgic == RT_NULL)
     {
-        rt_kprintf("[Error] Allocate memory for new VM failure.\n");
+        hyp_err("Allocate memory for new VM failure");
         rt_free(new_vm);
         rt_free(mm);
         vgic_free(vgic);
@@ -261,7 +259,7 @@ rt_err_t create_vm(int argc, char **argv)
             os_idx = strtol((const char *)options.optarg, NULL, 10);
             if(os_idx < 0 || os_idx >= MAX_OS_NUM)
             {
-                rt_kprintf("[Error] OS_type %d is out of scope\n", os_idx);
+                hyp_err("OS_type %d is out of scope", os_idx);
                 return -RT_EINVAL;
             }
             new_vm->os = &os_img[os_idx];
@@ -271,14 +269,14 @@ rt_err_t create_vm(int argc, char **argv)
             strncpy(new_vm->name, options.optarg, VM_NAME_SIZE);
             break;
         case '?':
-            rt_kprintf("[Error] %s: %s.\n", argv[0], options.errmsg);
+            hyp_err("%s: %s", argv[0], options.errmsg);
             return -RT_ERROR;
         }
     }
 
     /* Print remaining arguments. */
     while ((arg = optparse_arg(&options)))
-        printf("%s\n", arg);
+        rt_kprintf("%s\n", arg);
 
     vm_config_init(new_vm, vm_idx);
 
@@ -312,7 +310,7 @@ void pick_vm(int argc, char **argv)
             vm_idx = strtol((const char *)options.optarg, NULL, 10);
             if (vm_idx < 0 || vm_idx >= MAX_VM_NUM)
             {
-                rt_kprintf("[Error] VM id %d is out of scope\n", vm_idx);
+                hyp_err("%dth VM: Out of scope", vm_idx);
                 return;
             }
 #ifdef RT_USING_SMP
@@ -324,7 +322,7 @@ void pick_vm(int argc, char **argv)
 #endif 
             break;
         case '?':
-            rt_kprintf("[Error] %s: %s.\n", argv[0], options.errmsg);
+            hyp_err("%s: %s", argv[0], options.errmsg);
             return;
         }
     }
@@ -336,7 +334,7 @@ void pick_vm(int argc, char **argv)
     if (rt_hyp.vms[vm_idx])
         rt_hyp.curr_vm_idx = vm_idx;
     else
-        rt_kprintf("[Error] VM id %d is out of scope\n", vm_idx);
+        hyp_err("%dth VM: Out of scope", vm_idx);
 
 #ifdef RT_USING_SMP
     rt_hw_spin_unlock(&rt_hyp.hyp_lock);
@@ -350,7 +348,7 @@ static rt_err_t vm_idx_check(void)
 
     if (vm_idx < 0 || vm_idx >= MAX_VM_NUM)
     {
-        rt_kprintf("[Error] %dth VM is not exist\n", vm_idx);
+        hyp_err("%dth VM: Not exist", vm_idx);
         ret = -RT_EINVAL;
     }
 
@@ -377,16 +375,16 @@ rt_err_t run_vm(void)
         case VM_STATUS_OFFLINE:
             /* open this vm and schedule vcpus. */
             vm->status = VM_STATUS_ONLINE;
-            rt_kprintf("[Info] Open %dth VM\n", vm_idx);
+            hyp_info("%dth VM: Open", vm_idx);
             vm_go(vm);
             break;
         case VM_STATUS_ONLINE:
-            rt_kprintf("[Info] %dth VM is running\n", vm_idx);
+            hyp_warn("%dth VM: Running", vm_idx);
             break;
         case VM_STATUS_SUSPEND:
             /* start schedule vcpus. */
             vm->status = VM_STATUS_ONLINE;
-            rt_kprintf("[Info] Continue %dth VM\n", vm_idx);
+            hyp_info("%dth VM: Continue", vm_idx);
             vm_go(vm);
             break;
         case VM_STATUS_NEVER_RUN:
@@ -397,26 +395,26 @@ rt_err_t run_vm(void)
             ret = vm_init(vm);
             if (ret != RT_EOK)
             {
-                rt_kprintf("[Error] %dth VM: Init failure\n", vm_idx);
+                hyp_err("%dth VM: Init failure", vm_idx);
                 return ret;
             }
             else
             {
                 vm->status = VM_STATUS_ONLINE;
-                rt_kprintf("[Info] %dth VM: Run first time\n", vm_idx);
+                hyp_info("%dth VM: Run first time", vm_idx);
                 vm_go(vm);
             }
             break;
         case VM_STATUS_UNKNOWN:
         default:
-            rt_kprintf("[Error] %dth VM: Status unknown\n", vm_idx);
+            hyp_err("%dth VM: Status unknown", vm_idx);
             ret = -RT_ERROR;
             break;
         }
     }
     else
     {
-        rt_kprintf("[Error] %dth VM: Not use\n", vm_idx);
+        hyp_err("%dth VM: Not use", vm_idx);
         ret = -RT_EINVAL;
     }
 
@@ -439,7 +437,7 @@ rt_err_t pause_vm(void)
         vm_suspend(vm);
     else
     {
-        rt_kprintf("[Error] %dth VM is not set.\n", vm_idx);
+        hyp_err("%dth VM: Not set", vm_idx);
         ret = -RT_EINVAL;
     }
 
@@ -481,18 +479,18 @@ rt_err_t delete_vm(void)
             rt_hyp.vms[vm_idx] = RT_NULL;
             vm_free(del_vm);
             bitmap_clr_bit(&rt_hyp.vm_bitmap, vm_idx);
-            rt_kprintf("[Info] Delete %dth VM success.\n", vm_idx);
+            hyp_info("%dth VM: Delete success", vm_idx);
             return RT_EOK;
         }
         else
         {
-            rt_kprintf("[Error] %dth VM halt failure.\n", vm_idx);
+            hyp_info("%dth VM: Halt failure", vm_idx);
             return -RT_ERROR;
         }
     }
     else
     {
-        rt_kprintf("[Error] %dth VM is not set.\n", vm_idx);
+        hyp_err("%dth VM: Not set", vm_idx);
         return -RT_EINVAL;
     }
 }
@@ -567,14 +565,14 @@ void list_vm(void)
 void print_el(void)
 {
     rt_ubase_t currEL = rt_hw_get_current_el();
-    rt_kprintf("Now is at EL%d\n", currEL);
+    hyp_debug("Now is at EL%d", currEL);
 }
 
 void print_virq(int vm_idx)
 {
     if (rt_hyp.vms[vm_idx] && rt_hyp.vms[vm_idx]->vgic->gicd)
     {
-        rt_kprintf("__ %dth VM __\nvINTID = %d\npINTID = %d\nenable = %d\nhw = %d\n\n",
+        rt_kprintf("__ %dth VM __\nvINTID = %d\npINTID = %d\nenable = %d\nhw     = %d\n\n",
             vm_idx,
             rt_hyp.vms[vm_idx]->vgic->gicd->virqs[1].vINIID,
             rt_hyp.vms[vm_idx]->vgic->gicd->virqs[1].pINTID,

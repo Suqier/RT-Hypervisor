@@ -114,7 +114,6 @@
 
 #define RT_HYPERVISOR
 #define RT_USING_NVHE
-#define ARM64_ERRATUM_1530923
 #define MAX_VM_NUM 4
 #define MAX_OS_NUM 3
 

@@ -12,6 +12,7 @@
 
 #include "stage2.h"
 #include "virt_arch.h"
+#include "hyp_debug.h"
 
 rt_bool_t arm_vhe_supported(void)
 {
@@ -194,8 +195,8 @@ static void activate_trap(struct vcpu *vcpu)
     /* With VHE (HCR.E2H == 1), accesses to CPACR_EL1 are routed to CPTR_EL2 */
     SET_SYS_REG(CPACR_EL1, val);
 
-    extern void *system_vectors;    /* TBD */
-    SET_SYS_REG(VBAR_EL1, &system_vectors);
+    // extern void *system_vectors;    /* @TODO */
+    // SET_SYS_REG(VBAR_EL1, &system_vectors);
 }
 
 static void load_stage2_setting(struct vcpu *vcpu)
@@ -299,7 +300,7 @@ void guest_to_host_arch_handler(struct vcpu *vcpu)
  */
 void vcpu_to_vcpu_arch_handler(vcpu_t from, struct vcpu *to)
 {
-    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
+    hyp_debug("%s, %d", __FUNCTION__, __LINE__);
 }
 
 /*
@@ -307,7 +308,7 @@ void vcpu_to_vcpu_arch_handler(vcpu_t from, struct vcpu *to)
  */
 void guest_to_guest_arch_handler(struct vcpu *from, struct vcpu *to)
 {
-    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
+    hyp_debug("%s, %d", __FUNCTION__, __LINE__);
 
     /* save guest_1 runtime env */
 

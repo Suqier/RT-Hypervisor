@@ -89,7 +89,7 @@ struct cpu_context
 	struct rt_hw_exp_stack regs;
     rt_uint64_t sys_regs[NR_VCPU_SYS_REGS];
 
-	/* interrupts & timer virtualization | TBD */
+	/* interrupts & timer virtualization | @TODO */
 
     struct vcpu *vcpu;
 };

@@ -16,6 +16,7 @@
 #include "vgic.h"
 #include "vm.h"
 #include "os.h"
+#include "hyp_debug.h"
 
 #define MAX_OS_NUM  3
 
@@ -41,7 +42,7 @@ vgic_t vgic_create(void)
     if (v == RT_NULL)
     {
         rt_free(v);
-        rt_kputs("[Error] Alloc meomry for vGIC failure.\n");
+        hyp_err("Alloc meomry for vGIC failure");
         return RT_NULL;
     }
 
@@ -126,11 +127,12 @@ void vgic_init(struct vm *vm)
     vgicd_t gicd = (vgicd_t)rt_malloc(sizeof(struct vgicd));
     if (gicd == RT_NULL)
     {
-        rt_kputs("[Error] Alloc memory for gicd failure\n");
+        hyp_err("%dth VM: Allocate memory for gicd failure", vm->id);
         return;
     }
     
-    rt_kprintf("0x%08x - 0x%08x\n", gicd, gicd + sizeof(struct vgicd));
+    hyp_debug("%dth VM: GICD: 0x%08x - 0x%08x", 
+                vm->id, gicd, gicd + sizeof(struct vgicd));
     vm->vgic->gicd = gicd;
 
     vgicd_init(vm, v->gicd);
