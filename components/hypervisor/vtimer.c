@@ -45,7 +45,7 @@ void ptimer_timeout_function(void *parameter)
     vt_ctxt_t vtc = (vt_ctxt_t)parameter;
 
     vcpu_t vcpu = vtc->ptimer.vcpu;
-    virq_t virq = &vcpu->vm->vgic.gicr[vcpu->id]->virqs[vtc->ptimer.vINIID];
+    virq_t virq = &vcpu->vm->vgic.gicr[vcpu->id].virqs[vtc->ptimer.vINIID];
 
     vcpu->vm->vgic.ops->inject(vcpu, virq);
 }

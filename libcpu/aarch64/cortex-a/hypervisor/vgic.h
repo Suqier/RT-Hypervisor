@@ -275,7 +275,7 @@ struct vgic
     struct vgic_info info;
 
     vgicd_t gicd;
-    vgicr_t gicr[MAX_VCPU_NUM];
+    struct vgicr gicr[MAX_VCPU_NUM];
 
     struct vgic_context ctxt;
     const struct vgic_ops *ops;

@@ -130,12 +130,7 @@ void vgic_init(struct vm *vm)
     for (rt_size_t i = 0; i < vm->info.nr_vcpus; i++)
     {
         if (vm->vcpus[i])
-        {
-            vgicr_t gicr = (vgicr_t)rt_malloc(sizeof(struct vgicr));
-            RT_ASSERT(gicr);
-            vm->vgic.gicr[i] = gicr;
-            vgicr_init(v->gicr[i], vm->vcpus[i]);
-        }
+            vgicr_init(&v->gicr[i], vm->vcpus[i]);
         else
             break;
     }
@@ -349,17 +344,17 @@ static void vgic_gicr_rd_emulate(rt_uint64_t off, access_info_t acc, rt_uint64_t
     case GICR_CTLR_OFF:
     {
         if (acc.is_write)
-            v->gicr[vcpu_id]->CTLR = *val;
+            v->gicr[vcpu_id].CTLR = *val;
         else
-            *val = v->gicr[vcpu_id]->CTLR;
+            *val = v->gicr[vcpu_id].CTLR;
     } break;
     case GICR_IIDR_OFF:
         if (!acc.is_write)
-            *val = v->gicr[vcpu_id]->IIDR;
+            *val = v->gicr[vcpu_id].IIDR;
         break;
     case GICR_TYPE_OFF:
         if (!acc.is_write)
-            *val = v->gicr[vcpu_id]->TYPE;
+            *val = v->gicr[vcpu_id].TYPE;
         break;
 
     default:
@@ -375,7 +370,7 @@ static void vgic_gicr_sgi_write_isenabler(rt_uint64_t off, rt_uint64_t *val)
 
     for (rt_size_t i = 0; i < 32; i++)
     {
-        virq_t virq = &v->gicr[vcpu_id]->virqs[i];
+        virq_t virq = &v->gicr[vcpu_id].virqs[i];
         if (*val & 0b1)
         {
             virq->enable = RT_TRUE;
@@ -393,7 +388,7 @@ static void vgic_gicr_sgi_write_icenabler(rt_uint64_t off, rt_uint64_t *val)
 
     for (rt_size_t i = 0; i < 32; i++)
     {
-        virq_t virq = &v->gicr[vcpu_id]->virqs[i];
+        virq_t virq = &v->gicr[vcpu_id].virqs[i];
         if (*val & 0b1)
         {
             virq->enable = RT_FALSE;
@@ -413,7 +408,7 @@ static void vgic_gicr_sgi_write_ispend(rt_uint64_t off, rt_uint64_t *val)
     {
         if (*val & 0b1)
         {
-            virq_t virq = &v->gicr[vcpu_id]->virqs[i];
+            virq_t virq = &v->gicr[vcpu_id].virqs[i];
 
             if (virq->state == VIRQ_STATUS_INACTIVE)
             {
@@ -441,7 +436,7 @@ static void vgic_gicr_sgi_write_icpend(rt_uint64_t off, rt_uint64_t *val)
     {
         if (*val & 0b1)
         {
-            virq_t virq = &v->gicr[vcpu_id]->virqs[i];
+            virq_t virq = &v->gicr[vcpu_id].virqs[i];
 
             if (virq->state == VIRQ_STATUS_PENDING)
             {
@@ -469,7 +464,7 @@ static void vgic_gicr_sgi_write_priority(rt_uint64_t off, rt_uint64_t *val)
 
     for (rt_size_t i = 0; i < 4; i++, irq++)
     {
-        virq_t virq = &v->gicr[vcpu_id]->virqs[i];
+        virq_t virq = &v->gicr[vcpu_id].virqs[i];
         virq->prio = *val & 0xFFUL;
         v->ops->update(get_curr_vcpu(), virq, UPDATE_PRIO);
         *val = *val >> 8;
@@ -485,7 +480,7 @@ static void vgic_gicr_sgi_write_icfgr(rt_uint64_t off, rt_uint64_t *val)
 
     for (rt_size_t i = 0; i < 16; i++, irq++)
     {
-        virq_t virq = &v->gicr[vcpu_id]->virqs[i];
+        virq_t virq = &v->gicr[vcpu_id].virqs[i];
         virq->cfg = *val & 0b11;
         v->ops->update(get_curr_vcpu(), virq, UPDATE_ICFGR);
         *val = *val >> 2;
@@ -753,7 +748,7 @@ static void vgic_context_restore_lr(struct vcpu *vcpu, rt_uint32_t nr_lr)
 {
     rt_size_t rm_idx = 0;
     rt_uint64_t elrsr = read_idle_lr_reg();
-    vgicr_t gicr = vcpu->vm->vgic.gicr[vcpu->id]; 
+    vgicr_t gicr = &vcpu->vm->vgic.gicr[vcpu->id]; 
 
     for (rt_size_t i = 0; i < nr_lr; i++)
     {
@@ -835,7 +830,7 @@ virq_t vgic_get_virq(struct vcpu *vcpu, int ir)
     RT_ASSERT(vcpu);
 
     if (ir < VIRQ_PRIV_NUM)
-        return &vcpu->vm->vgic.gicr[vcpu->id]->virqs[ir];
+        return &vcpu->vm->vgic.gicr[vcpu->id].virqs[ir];
     else
         return &vcpu->vm->vgic.gicd->virqs[ir - VIRQ_PRIV_NUM];
 }
@@ -853,9 +848,9 @@ void vgic_virq_mount(struct vm *vm, int ir)
             RT_ASSERT(virq->enable);
             if (virq->enable == RT_TRUE)
             {
-                    virq->hw     = RT_TRUE;
-                    virq->pINTID = ir;
-                    return;
+                virq->hw     = RT_TRUE;
+                virq->pINTID = ir;
+                return;
             }
         }
     }
@@ -883,13 +878,13 @@ void vgic_virq_umount(struct vm *vm, int ir)
 static rt_bool_t vgic_is_lr_list_empty(struct vcpu *vcpu)
 {
     RT_ASSERT(vcpu);
-    return (vcpu->vm->vgic.gicr[vcpu->id]->tail == 0);
+    return (vcpu->vm->vgic.gicr[vcpu->id].tail == 0);
 }
 
 static rt_bool_t vgic_is_lr_list_full(struct vcpu *vcpu)
 {
     RT_ASSERT(vcpu);
-    return (vcpu->vm->vgic.gicr[vcpu->id]->tail == GIC_LR_LIST_NUM);
+    return (vcpu->vm->vgic.gicr[vcpu->id].tail == GIC_LR_LIST_NUM);
 }
 
 /*
@@ -935,14 +930,14 @@ static void vgic_lr_list_sort(struct vcpu *vcpu)
 {
     if (vgic_is_lr_list_empty(vcpu) == RT_FALSE)
     {
-        vgicr_t gicr = vcpu->vm->vgic.gicr[vcpu->id]; 
+        vgicr_t gicr = &vcpu->vm->vgic.gicr[vcpu->id]; 
         lr_list_heap_create(gicr->lr_list, 0, gicr->tail - 1);
     }
 }
 
 static rt_bool_t vgic_is_lr_in_list(struct vcpu *vcpu, rt_uint64_t lr)
 {
-    vgicr_t gicr = vcpu->vm->vgic.gicr[vcpu->id];
+    vgicr_t gicr = &vcpu->vm->vgic.gicr[vcpu->id];
 
     for (rt_size_t i = 0; i < gicr->tail; i++)
     {
@@ -958,7 +953,7 @@ static void vgic_lr_list_insert(struct vcpu *vcpu, rt_uint64_t lr)
 {
     if (!vgic_is_lr_list_full(vcpu) && !vgic_is_lr_in_list(vcpu, lr))
     {
-        vgicr_t gicr = vcpu->vm->vgic.gicr[vcpu->id];
+        vgicr_t gicr = &vcpu->vm->vgic.gicr[vcpu->id];
         gicr->lr_list[gicr->tail] = lr;
         gicr->lr_list[gicr->tail] |= (rt_uint64_t)1 << ICH_LR_RES0_OFF;
         gicr->tail++;
@@ -971,7 +966,7 @@ static void vgic_lr_list_remove(struct vcpu *vcpu, rt_size_t rm_idx)
 {
     RT_ASSERT(vcpu);
 
-    vgicr_t gicr = vcpu->vm->vgic.gicr[vcpu->id]; 
+    vgicr_t gicr = &vcpu->vm->vgic.gicr[vcpu->id]; 
     RT_ASSERT(rm_idx >=0 && rm_idx < gicr->tail);
 
     rt_swap_lr_reg(&gicr->lr_list[rm_idx], &gicr->lr_list[--gicr->tail]);
@@ -1016,7 +1011,7 @@ void vgic_inject(struct vcpu *vcpu, virq_t virq)
 
     rt_uint32_t nr_lr = vcpu->vm->vgic.ctxt.nr_lr;
     rt_uint64_t elrsr = read_idle_lr_reg();
-    vgicr_t gicr = vcpu->vm->vgic.gicr[vcpu->id]; 
+    vgicr_t gicr = &vcpu->vm->vgic.gicr[vcpu->id]; 
     rt_size_t virq_size = gicr->tail + 1;
 
     for (rt_size_t i = 0; i < nr_lr; i++)

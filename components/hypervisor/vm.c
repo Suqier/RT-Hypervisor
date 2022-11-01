@@ -227,14 +227,10 @@ struct vcpu *vcpu_get_irq_owner(int ir)
             {
                 for (rt_size_t j = 0; j < rt_hyp.vms[i].info.nr_vcpus; j++)
                 {
-                    if (v->gicr[j])
-                    {
-                        if (v->gicr[j]->virqs[ir].enable == RT_TRUE
-                        &&  v->gicr[j]->virqs[ir].hw     == RT_TRUE)
-                            return rt_hyp.vms[i].vcpus[j];
-                    }
-                    else
-                        return RT_NULL;
+                    virq_t virq = &v->gicr[j].virqs[ir];
+                    if (virq->enable && virq->hw)
+                        return rt_hyp.vms[i].vcpus[j];
+
                 }
             }
             else    /* Find vIRQ in gicd */
