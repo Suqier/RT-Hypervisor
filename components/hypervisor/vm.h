@@ -13,6 +13,7 @@
 
 #include "mm.h"
 #include "vconsole.h"
+#include "vgic.h"
 
 #define THREAD_TIMESLICE    5
 
@@ -126,7 +127,7 @@ struct vm
     vcpu_t *vcpus;
 
     /* vGIC */
-    struct vgic *vgic;
+    struct vgic vgic;
 
     /* vTimer | @TODO */
     

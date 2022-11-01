@@ -335,41 +335,6 @@ void help_vm(void)
     rt_kprintf("%2s- %s\n", "create_vm", "create new vm.");
 }
 
-rt_err_t create_vm(int argc, char **argv)
-{
-    rt_err_t ret = RT_EOK;
-    vgic_t vgic;
-
-    /* First time to create vm need to init all hyp system. */
-    if (!rt_hyp.arch.hyp_init_ok)
-    {
-        ret = rt_hypervisor_init();
-        if (ret != RT_EOK)
-            return ret;
-        else
-            rt_hyp.arch.hyp_init_ok = RT_TRUE;
-    }
-
-    vm_t new_vm = &rt_hyp.vms[rt_hyp.curr_vm];
-    vgic = vgic_create();
-    if (new_vm == RT_NULL || vgic == RT_NULL)
-    {
-        hyp_err("Allocate memory for new VM failure");
-        rt_free(new_vm);
-        vgic_free(vgic);
-        return -RT_ENOMEM;
-    }
-    else
-    {
-        rt_memset((void *)&new_vm->mm, 0, sizeof(struct mm_struct));
-
-        new_vm->mm.vm = new_vm;
-        new_vm->vgic = vgic;
-    }
-
-    return ret;
-}
-
 void pick_vm(int argc, char **argv)
 {
     int opt;
@@ -564,14 +529,14 @@ void print_el(void)
 
 void print_virq(int vm_idx)
 {
-    if (rt_hyp.vms[vm_idx].vgic && rt_hyp.vms[vm_idx].vgic->gicd)
+    if (rt_hyp.vms[vm_idx].vgic.gicd)
     {
         rt_kprintf("__ %dth VM __\nvINTID = %d\npINTID = %d\nenable = %d\nhw     = %d\n\n",
             vm_idx,
-            rt_hyp.vms[vm_idx].vgic->gicd->virqs[1].vINIID,
-            rt_hyp.vms[vm_idx].vgic->gicd->virqs[1].pINTID,
-            rt_hyp.vms[vm_idx].vgic->gicd->virqs[1].enable,
-            rt_hyp.vms[vm_idx].vgic->gicd->virqs[1].hw);
+            rt_hyp.vms[vm_idx].vgic.gicd->virqs[1].vINIID,
+            rt_hyp.vms[vm_idx].vgic.gicd->virqs[1].pINTID,
+            rt_hyp.vms[vm_idx].vgic.gicd->virqs[1].enable,
+            rt_hyp.vms[vm_idx].vgic.gicd->virqs[1].hw);
     }
 }
 
@@ -586,7 +551,6 @@ void dump_virq(void)
 MSH_CMD_EXPORT(print_el, print current EL);
 MSH_CMD_EXPORT(list_vm, list all vm detail);
 MSH_CMD_EXPORT(help_vm, print hypervisor help info);
-MSH_CMD_EXPORT(create_vm, create new vm);
 MSH_CMD_EXPORT(pick_vm, change current picking vm);
 MSH_CMD_EXPORT(run_vm, run vm by index);
 MSH_CMD_EXPORT(pause_vm, pause vm by index);

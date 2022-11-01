@@ -200,9 +200,8 @@ void rt_hw_trap_irq(void)      /* Add Hypervisor handle IRQ later */
 
         if (vcpu->status == VCPU_STAT_ONLINE 
         ||  vcpu->status == VCPU_STAT_SUSPEND)
-            vcpu->vm->vgic->ops->inject(vcpu, virq);
+            vcpu->vm->vgic.ops->inject(vcpu, virq);
 
-        // rt_kprintf("vgic_get_virq tid->name = %s\n", rt_thread_self()->name);
         rt_hw_interrupt_ack(ir);
     }
     else

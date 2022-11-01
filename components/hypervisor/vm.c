@@ -222,7 +222,7 @@ struct vcpu *vcpu_get_irq_owner(int ir)
         rt_uint16_t stat = rt_hyp.vms[i].status;
         if (stat == VM_STAT_SUSPEND || stat == VM_STAT_ONLINE)
         {
-            vgic_t v = rt_hyp.vms[i].vgic;
+            vgic_t v = &rt_hyp.vms[i].vgic;
             
             if (ir < VIRQ_PRIV_NUM)     /* Find vIRQ in gicr */
             {
@@ -290,7 +290,8 @@ rt_err_t os_img_load(vm_t vm)
 
 void vm_config_init(vm_t vm)
 {
-    hyp_info("Allocate VM id is %03d", vm->id);
+    rt_memset((void *)&vm->mm, 0, sizeof(struct mm_struct));
+    vm->mm.vm = vm;
     vm->mm.mem_size = vm->info.va_size;
     vm->mm.mem_used = 0;
     rt_list_init(&vm->dev_list);
@@ -399,7 +400,7 @@ void vm_shutdown(vm_t vm)
 
 void vm_free(vm_t vm)
 {
-    vgic_free(vm->vgic);
+    vgic_free(&vm->vgic);
 
     /* free vCPUs resource */
     for (rt_size_t i = 0; i < vm->info.nr_vcpus; i++)

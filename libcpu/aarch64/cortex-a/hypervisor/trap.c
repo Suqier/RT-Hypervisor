@@ -163,9 +163,9 @@ void ec_dabt_low_handler(gp_regs_t regs, rt_uint32_t esr)
 
         /* MMIO handler */
         if(is_access_vgicd(acc.addr))
-            get_curr_vm()->vgic->ops->emulate(regs, acc, RT_TRUE);
+            get_curr_vm()->vgic.ops->emulate(regs, acc, RT_TRUE);
         else if (is_access_vgicr(acc.addr))
-            get_curr_vm()->vgic->ops->emulate(regs, acc, RT_FALSE);
+            get_curr_vm()->vgic.ops->emulate(regs, acc, RT_FALSE);
         else
             vdev_mmio_handler(regs, acc);
     }
