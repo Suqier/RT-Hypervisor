@@ -11,7 +11,7 @@
 #ifndef __HYP_FDT_H__
 #define __HYP_FDT_H__
 
-#include <fdt.h>
+#include "packages/fdt/inc/fdt.h"
 
 
 

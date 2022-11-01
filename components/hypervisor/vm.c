@@ -35,9 +35,9 @@ const char* vm_stat_str[VM_STAT_UNKNOWN + 1] =
 
 const char* os_type_str[OS_TYPE_OTHER + 1] =
 {
-    [OS_TYPE_LINUX] = "Linux",
-    [OS_TYPE_LINUX] = "RT-Thread",
-    [OS_TYPE_LINUX] = "Other",
+    [OS_TYPE_LINUX]     = "Linux",
+    [OS_TYPE_RT_THREAD] = "RT-Thread",
+    [OS_TYPE_OTHER]     = "Other",
 };
 
 /*
@@ -219,7 +219,8 @@ struct vcpu *vcpu_get_irq_owner(int ir)
 {
     for (rt_size_t i = 0; i < MAX_VM_NUM; i++)
     {
-        if (rt_hyp.vms[i].status != VM_STAT_IDLE)
+        rt_uint16_t stat = rt_hyp.vms[i].status;
+        if (stat == VM_STAT_SUSPEND || stat == VM_STAT_ONLINE)
         {
             vgic_t v = rt_hyp.vms[i].vgic;
             

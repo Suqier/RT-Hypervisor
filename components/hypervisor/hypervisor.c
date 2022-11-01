@@ -47,8 +47,6 @@ static rt_uint32_t fdt_get_cell(struct dtb_node *dtb_node, const char *property_
 
 rt_err_t vm_info_init(void)
 {
-    rt_err_t ret = RT_EOK;
-
     void *fdt;
     if ((fdt = fdt_load_from_memory((void *)FDT_ADDR, RT_FALSE)) != RT_NULL)
     {
@@ -66,7 +64,105 @@ rt_err_t vm_info_init(void)
                     rt_size_t p_size, index;
                     rt_uint32_t u32_val, *u32_ptr, vmid;
 
-                    hyp_debug("1");
+                    vmid = fdt_get_cell(vm_child, "vmid");
+                    rt_hyp.vms[vmid].id = vmid;
+                    struct vm_info *info = &rt_hyp.vms[vmid].info;
+
+                    info->img_type = fdt_get_cell(vm_child, "type");
+                    info->nr_vcpus = fdt_get_cell(vm_child, "vcpus");
+                    
+                    index = 0;
+                    for_each_property_cell(vm_child, "vcpu_affinity", u32_val, u32_ptr, p_size)
+                    {
+                        info->affinity[index++] = u32_val;
+                    }
+                    
+                    for_each_property_cell(vm_child, "image_address", u32_val, u32_ptr, p_size)
+                    {
+                        info->img_addr = u32_val;
+                    }
+                    
+                    info->img_size = 0x20000;
+
+                    for_each_property_cell(vm_child, "entry", u32_val, u32_ptr, p_size)
+                    {
+                        info->img_entry = u32_val;
+                    }
+                    
+                    rt_strncpy(rt_hyp.vms[vmid].name, vm_child->name, RT_NAME_MAX);
+                    rt_hyp.vms[vmid].status = VM_STAT_NEVER_RUN;
+
+                    index = 0;
+                    for_each_property_cell(vm_child, "memory", u32_val, u32_ptr, p_size)
+                    {
+                        index++;
+                        if (index == 2)
+                            info->va_addr = u32_val;
+
+                        if (index == 4)
+                            info->va_size = u32_val;
+                    }
+
+                    index = 0;
+                    for_each_property_cell(vm_child, "phymem", u32_val, u32_ptr, p_size)
+                    {
+                        index++;
+                        if (index == 2)
+                            info->pa_addr = u32_val;
+
+                        if (index == 4)
+                            info->pa_size = u32_val;
+                    }
+
+                    struct dtb_node *vm_device = vm_child->child;
+                    for_each_node_child(vm_device)
+                    {
+                        struct dtb_node *sub_node = vm_device;
+                        char *dev_name = 
+                        fdt_get_dtb_node_property(sub_node, "compatible", RT_NULL);
+                        
+                        if (rt_strcmp("arm,gicv3", dev_name) == 0)
+                        {
+                            info->maintenance_id = fdt_get_cell(sub_node, "maintenance_interrupts");
+                            
+                            index = 0;
+                            for_each_property_cell(sub_node, "reg", u32_val, u32_ptr, p_size)
+                            {
+                                index++;
+                                if (index == 1)
+                                    info->gicd_addr = u32_val;
+
+                                if (index == 3)
+                                    info->gicr_addr = u32_val;
+                            }
+                        }
+
+                        if (rt_strcmp("rt_thread,vm_console", dev_name) == 0)
+                        {
+                            info->dev_num = 1;
+                            rt_size_t dev_index = 0;
+
+                            for_each_property_cell(sub_node, "interrupts", u32_val, u32_ptr, p_size)
+                            {
+                                info->devs[dev_index].interrupts = u32_val;
+                            }
+
+
+                            index = 0;
+                            for_each_property_cell(sub_node, "reg", u32_val, u32_ptr, p_size)
+                            {
+                                index++;
+                                if (index == 1)
+                                {
+                                    info->devs[dev_index].va_addr = u32_val;
+                                    info->devs[dev_index].pa_addr = u32_val;
+                                }
+
+                                if (index == 2)
+                                    info->devs[dev_index].size = u32_val;
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -74,7 +170,7 @@ rt_err_t vm_info_init(void)
         hyp_info("VM info load from device tree over");
     }
 
-    return ret;
+    return RT_EOK;
 }
 
 int rt_hyp_init(void)
@@ -86,6 +182,9 @@ int rt_hyp_init(void)
 
     bitmap_init(&rt_hyp.vm_bitmap);
     rt_hyp.curr_vm = MAX_VM_NUM;
+
+    rt_memset((void *)&rt_hyp.vms, 0, MAX_VM_NUM * sizeof(struct vm));
+    vm_info_init();
     hyp_info("Support %d VMs max", MAX_VM_NUM);
 
 #ifdef RT_USING_SMP
@@ -267,7 +366,6 @@ rt_err_t create_vm(int argc, char **argv)
     }
 
     new_vm = &rt_hyp.vms[vm_idx];
-    hyp_info("NEW_VM: 0x%08x - 0x%08x", new_vm, new_vm + sizeof(struct vm));
     vgic = vgic_create();
     if (new_vm == RT_NULL || vgic == RT_NULL)
     {
@@ -278,7 +376,6 @@ rt_err_t create_vm(int argc, char **argv)
     }
     else
     {
-        rt_memset((void *)new_vm, 0, sizeof(struct vm));
         rt_memset((void *)&new_vm->mm, 0, sizeof(struct mm_struct));
 
         new_vm->mm.vm = new_vm;
@@ -570,7 +667,7 @@ void print_el(void)
 
 void print_virq(int vm_idx)
 {
-    if (rt_hyp.vms[vm_idx].vgic->gicd)
+    if (rt_hyp.vms[vm_idx].vgic && rt_hyp.vms[vm_idx].vgic->gicd)
     {
         rt_kprintf("__ %dth VM __\nvINTID = %d\npINTID = %d\nenable = %d\nhw     = %d\n\n",
             vm_idx,
@@ -600,4 +697,5 @@ MSH_CMD_EXPORT(pause_vm, pause vm by index);
 MSH_CMD_EXPORT(halt_vm, halt vm by index);
 MSH_CMD_EXPORT(delete_vm, delete vm by index);
 MSH_CMD_EXPORT(dump_virq, for test);
+MSH_CMD_EXPORT(vm_info_init, for test);
 #endif /* RT_USING_FINSH */

@@ -403,6 +403,7 @@
 					compatible = "arm,gicv3";
 					#address-cells = <0x1>;
 					#size-cells = <0x1>;
+					maintenance_interrupts = <25>;
 					/* GICD, GICR */
 					reg = <0x08000000 0x10000>, <0x080a0000 0x2000>;
 				};

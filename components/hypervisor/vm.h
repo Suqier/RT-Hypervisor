@@ -70,8 +70,8 @@ enum
 
 struct device_info
 {
-    rt_uint64_t paddr;
-    rt_uint64_t vaddr;
+    rt_uint64_t pa_addr;
+    rt_uint64_t va_addr;
     rt_uint64_t size;
     rt_uint64_t interrupts;
 };
@@ -136,9 +136,20 @@ struct vm
 }__attribute__((aligned(L1_CACHE_BYTES)));
 typedef struct vm *vm_t;
 
-rt_inline vcpu_t get_vcpu_by_thread(rt_thread_t tid) { return (vcpu_t)tid->vcpu; }
-rt_inline vcpu_t get_curr_vcpu(void)                 { return get_vcpu_by_thread(rt_thread_self()); }
-rt_inline vm_t   get_curr_vm(void)                   { return get_curr_vcpu()->vm; }
+rt_inline vcpu_t get_vcpu_by_thread(rt_thread_t tid) 
+{
+    return (vcpu_t)tid->vcpu; 
+}
+
+rt_inline vcpu_t get_curr_vcpu(void)                 
+{ 
+    return get_vcpu_by_thread(rt_thread_self()); 
+}
+
+rt_inline vm_t   get_curr_vm(void)                   
+{ 
+    return get_curr_vcpu()->vm; 
+}
 
 /*
  * For vCPU

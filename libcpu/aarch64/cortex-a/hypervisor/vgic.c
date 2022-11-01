@@ -92,6 +92,7 @@ void vgicr_init(vgicr_t gicr, struct vcpu *vcpu)
 
     /* get from device tree */ 
     rt_memset((void *)&gicr->lr_list, 0, GIC_LR_LIST_NUM * sizeof(rt_uint64_t));
+    gicr->tail = 0;
 
     for (rt_size_t i = 0; i < VIRQ_PRIV_NUM; i++)
     {
@@ -130,11 +131,8 @@ void vgic_init(struct vm *vm)
         hyp_err("%dth VM: Allocate memory for gicd failure", vm->id);
         return;
     }
-    
-    hyp_debug("%dth VM: GICD: 0x%08x - 0x%08x", 
-                vm->id, gicd, gicd + sizeof(struct vgicd));
-    vm->vgic->gicd = gicd;
 
+    vm->vgic->gicd = gicd;
     vgicd_init(vm, v->gicd);
     for (rt_size_t i = 0; i < vm->nr_vcpus; i++)
     {
