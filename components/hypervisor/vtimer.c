@@ -55,7 +55,6 @@ void vtimer_timeout_function(void *parameter) {}
 rt_err_t vtimer_ctxt_create(vcpu_t vcpu)
 {
     vt_ctxt_t vt_ctxt = (vt_ctxt_t)rt_malloc(sizeof(struct vtimer_context));
-
     if (vt_ctxt == RT_NULL)
     {
         rt_free(vt_ctxt);

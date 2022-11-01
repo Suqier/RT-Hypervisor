@@ -30,22 +30,9 @@ static void vgic_lr_list_sort(struct vcpu *vcpu);
 static void vgic_lr_list_insert(struct vcpu *vcpu, rt_uint64_t lr);
 static void vgic_lr_list_remove(struct vcpu *vcpu, rt_size_t rm_idx);
 
-/* For vGIC create & init */
-vgic_t vgic_create(void)
-{
-    vgic_t v = (vgic_t)rt_malloc(sizeof(struct vgic));
-
-    if (v == RT_NULL)
-    {
-        rt_free(v);
-        hyp_err("Alloc meomry for vGIC failure");
-        return RT_NULL;
-    }
-
-    rt_memset((void *)v, 0, sizeof(struct vgic));
-    return v;
-}
-
+/* 
+ * For vGIC init 
+ */
 void vgicd_init(struct vm *vm, vgicd_t gicd)
 {
     RT_ASSERT(gicd);
@@ -119,14 +106,20 @@ void vgic_init(struct vm *vm)
 {
     RT_ASSERT(vm);
     vgic_t v = &vm->vgic;
-    vgicd_t gicd = (vgicd_t)rt_malloc(sizeof(struct vgicd));
+
+    vgicd_t gicd = (vgicd_t)rt_malloc_align(sizeof(struct vgicd), 0x2000);
     if (gicd == RT_NULL)
     {
         hyp_err("%dth VM: Allocate memory for gicd failure", vm->id);
         return;
     }
-    vm->vgic.gicd = gicd;
-    vgicd_init(vm, v->gicd);
+    else
+    {
+        hyp_debug("gicd = 0x%08x, size = 0x%08x", gicd, sizeof(struct vgicd));
+        vm->vgic.gicd = gicd;
+        vgicd_init(vm, v->gicd);
+    }
+
     for (rt_size_t i = 0; i < vm->info.nr_vcpus; i++)
     {
         if (vm->vcpus[i])

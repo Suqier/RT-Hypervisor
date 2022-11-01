@@ -19,7 +19,7 @@ extern void *alloc_vm_pgd(rt_uint8_t vm_idx);
 struct vm_area *vm_area_init(struct mm_struct *mm, rt_uint64_t start, rt_uint64_t end)
 {
     struct vm_area *va = (struct vm_area *)rt_malloc(sizeof(struct vm_area));
-    if (!va)
+    if (va == RT_NULL)
     {
         hyp_err("Allocate memory for vm_area failure");
         return RT_NULL;
@@ -71,9 +71,7 @@ mem_block_t *alloc_mem_block(void)
 {
     mem_block_t *mb = (mem_block_t *)rt_malloc(sizeof(mem_block_t));
     
-    /* 
-     * return phy addr. It must align.
-     */
+    /* return phy addr. It must align. */
     mb->ptr = rt_malloc_align(MEM_BLOCK_SIZE, MEM_BLOCK_SIZE);  
     if (mb->ptr == RT_NULL)
     {

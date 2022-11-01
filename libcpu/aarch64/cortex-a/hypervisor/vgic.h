@@ -299,7 +299,6 @@ rt_inline rt_bool_t is_virq_hw(virq_t virq)
 rt_inline rt_bool_t is_virq_priv(virq_t virq)
 {   return (virq->vINIID < VIRQ_PRIV_NUM);  }
 
-vgic_t vgic_create(void);
 void vgicd_init(struct vm *vm, vgicd_t gicd);       /* using when vgic init in init VM */
 void vgicr_init(vgicr_t gicr, struct vcpu *vcpu);   /* using when create vcpu */
 void vgic_init (struct vm *vm);
