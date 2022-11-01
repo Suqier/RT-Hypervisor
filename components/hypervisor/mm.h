@@ -13,9 +13,7 @@
 
 #include <rthw.h>
 #include <mmu.h>
-
 #include <stage2.h>
-// #include "vm.h"
 
 #define DEFAULT_CPU_STACK_SIZE  (0x8000)
 #define MEM_BLOCK_SIZE          (0x200000)

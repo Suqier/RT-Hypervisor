@@ -55,8 +55,8 @@ rt_err_t vm_mm_struct_init(struct mm_struct *mm)
      * We adjust ipa_start and ipa_end by getting OS img information.
      * Currently only supports a memory case.
      */
-    rt_uint64_t ipa_start = vm->os->mem.addr;
-    rt_uint64_t ipa_end = ipa_start + BYTE(vm->os->mem.size);
+    rt_uint64_t ipa_start = vm->info.va_addr;
+    rt_uint64_t ipa_end = ipa_start + vm->info.va_size;
     struct vm_area *va = vm_area_init(mm, ipa_start, ipa_end);
     if (!va)
         return -RT_ENOMEM;
@@ -94,13 +94,13 @@ rt_err_t alloc_vm_memory(struct mm_struct *mm)
     rt_uint64_t start = RT_ALIGN_DOWN(va_start, MEM_BLOCK_SIZE);
     if (start != va_start)
     {
-		hyp_err("MEM 0x%08x not mem_block aligned\n", va_start);
+		hyp_err("MEM 0x%08x not mem_block aligned", va_start);
 		return -RT_EINVAL;
     }
 
     vma->mb_head = RT_NULL;
     vma->flag |= VM_MAP_BK;
-    rt_size_t count = BYTE(mm->mem_size) >> MEM_BLOCK_SHIFT;
+    rt_size_t count = mm->mem_size >> MEM_BLOCK_SHIFT;
 
     /* Allocate virtual memory from Host OS. Still not map memory yet. */
     for (rt_size_t i = 0; i < count; i++)

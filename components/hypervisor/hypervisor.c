@@ -124,6 +124,7 @@ rt_err_t vm_info_init(void)
                         if (rt_strcmp("arm,gicv3", dev_name) == 0)
                         {
                             info->maintenance_id = fdt_get_cell(sub_node, "maintenance_interrupts");
+                            info->virq_num = fdt_get_cell(sub_node, "virq_num");
                             
                             index = 0;
                             for_each_property_cell(sub_node, "reg", u32_val, u32_ptr, p_size)
@@ -147,7 +148,6 @@ rt_err_t vm_info_init(void)
                                 info->devs[dev_index].interrupts = u32_val;
                             }
 
-
                             index = 0;
                             for_each_property_cell(sub_node, "reg", u32_val, u32_ptr, p_size)
                             {
@@ -163,6 +163,8 @@ rt_err_t vm_info_init(void)
                             }
                         }
                     }
+
+                    rt_hyp.total_vm++;
                 }
             }
         }
@@ -180,12 +182,11 @@ int rt_hyp_init(void)
     rt_hyp.phy_mem_size = HYP_MEM_SIZE;
     rt_hyp.phy_mem_used = 0;
 
-    bitmap_init(&rt_hyp.vm_bitmap);
-    rt_hyp.curr_vm = MAX_VM_NUM;
+    rt_hyp.curr_vm = 0;
 
     rt_memset((void *)&rt_hyp.vms, 0, MAX_VM_NUM * sizeof(struct vm));
     vm_info_init();
-    hyp_info("Support %d VMs max", MAX_VM_NUM);
+    hyp_info("Support %d VMs max, Now load %d VMs", MAX_VM_NUM, rt_hyp.total_vm);
 
 #ifdef RT_USING_SMP
     rt_hw_spin_lock_init(&rt_hyp.hyp_lock);
@@ -313,17 +314,18 @@ static rt_err_t __hyp_arch_init(void)
     return ret;
 }
 
-rt_err_t rt_hypervisor_init(void)
+int rt_hypervisor_init(void)
 {
     rt_scheduler_sethook(switch_hook);
 
-    rt_err_t ret = __hyp_arch_init();
+    int ret = __hyp_arch_init();
     if (ret != RT_EOK)
         return ret;
 
     hyp_info("RT-Hypervisor init over");
     return ret;
 }
+INIT_APP_EXPORT(rt_hypervisor_init);
 
 void help_vm(void)
 {
@@ -336,12 +338,7 @@ void help_vm(void)
 rt_err_t create_vm(int argc, char **argv)
 {
     rt_err_t ret = RT_EOK;
-    rt_uint8_t vm_idx, os_idx;
-    vm_t new_vm;
     vgic_t vgic;
-    char *arg;
-    int opt;
-    struct optparse options;
 
     /* First time to create vm need to init all hyp system. */
     if (!rt_hyp.arch.hyp_init_ok)
@@ -353,19 +350,7 @@ rt_err_t create_vm(int argc, char **argv)
             rt_hyp.arch.hyp_init_ok = RT_TRUE;
     }
 
-    /* new vm: allcate memory and index */
-    if (rt_hyp.total_vm == MAX_VM_NUM)
-    {
-        hyp_err("VMs Full, no more idle VM can use");
-        return -RT_ERROR;
-    }
-    else
-    {
-        vm_idx = bitmap_find_next(&rt_hyp.vm_bitmap);   /* 0 ~ 31 */
-        bitmap_set_bit(&rt_hyp.vm_bitmap, vm_idx);
-    }
-
-    new_vm = &rt_hyp.vms[vm_idx];
+    vm_t new_vm = &rt_hyp.vms[rt_hyp.curr_vm];
     vgic = vgic_create();
     if (new_vm == RT_NULL || vgic == RT_NULL)
     {
@@ -381,51 +366,6 @@ rt_err_t create_vm(int argc, char **argv)
         new_vm->mm.vm = new_vm;
         new_vm->vgic = vgic;
     }
-
-    /* 
-     * "i" for os type and "n" for vm name. for example:
-     * -i os_img_type -n test_1
-     */
-    optparse_init(&options, argv);
-    while ((opt = optparse(&options, "i:n:")) != -1) 
-    {
-        switch (opt) 
-        {
-        case 'i':
-            os_idx = strtol((const char *)options.optarg, NULL, 10);
-            if(os_idx < 0 || os_idx >= MAX_OS_NUM)
-            {
-                hyp_err("OS_type %d is out of scope", os_idx);
-                return -RT_EINVAL;
-            }
-            new_vm->os = &os_img[os_idx];
-            new_vm->os_idx = os_idx;
-            break;
-        case 'n':
-            strncpy(new_vm->name, options.optarg, VM_NAME_SIZE);
-            break;
-        case '?':
-            hyp_err("%s: %s", argv[0], options.errmsg);
-            return -RT_ERROR;
-        }
-    }
-
-    /* Print remaining arguments. */
-    while ((arg = optparse_arg(&options)))
-        rt_kprintf("%s\n", arg);
-
-    vm_config_init(new_vm, vm_idx);
-
-#ifdef RT_USING_SMP
-    rt_hw_spin_lock(&rt_hyp.hyp_lock);
-#endif
-
-    rt_hyp.curr_vm = vm_idx;
-    rt_hyp.total_vm++;
-
-#ifdef RT_USING_SMP
-    rt_hw_spin_unlock(&rt_hyp.hyp_lock);
-#endif
 
     return ret;
 }
@@ -537,14 +477,15 @@ rt_err_t run_vm(void)
 
 rt_err_t pause_vm(void)
 {
-    /* 
-     * Changes VM status and stops schedule vCPUs.
-     */
+    /* Changes VM status and stops schedule vCPUs */
     rt_uint64_t ret = RT_EOK;
     rt_uint64_t vm_idx = rt_hyp.curr_vm;
     vm_t vm = &rt_hyp.vms[vm_idx];
-    if (vm)
+    if (vm->status != VM_STAT_IDLE)
+    {
+        vm->status = VM_STAT_SUSPEND;
         vm_suspend(vm);
+    }
     else
     {
         hyp_err("%dth VM: Not set", vm_idx);
@@ -557,71 +498,27 @@ rt_err_t pause_vm(void)
 rt_err_t halt_vm(void)
 {
     /* Stop running VM and turn VM's status down */
+    rt_uint64_t ret = RT_EOK;
     rt_uint64_t vm_idx = rt_hyp.curr_vm;
     vm_t vm = &rt_hyp.vms[vm_idx];
-    vm_shutdown(vm);
-    return RT_EOK;
-}
-
-rt_err_t delete_vm(void)
-{
-    rt_uint8_t vm_idx = rt_hyp.curr_vm;
-    if (rt_hyp.vms[vm_idx].status == VM_STAT_IDLE)
+    if (vm->status != VM_STAT_IDLE)
     {
-        /* halt the VM and free VM memory */
-        rt_err_t ret = halt_vm();
-        if (!ret)
-        {
-            struct vm *del_vm = &rt_hyp.vms[vm_idx];
-            rt_hyp.vms[vm_idx].status = VM_STAT_IDLE;
-            vm_free(del_vm);
-            bitmap_clr_bit(&rt_hyp.vm_bitmap, vm_idx);
-            hyp_info("%dth VM: Delete success", vm_idx);
-            return RT_EOK;
-        }
-        else
-        {
-            hyp_info("%dth VM: Halt failure", vm_idx);
-            return -RT_ERROR;
-        }
+        vm->status = VM_STAT_OFFLINE;
+        vm_shutdown(vm);
     }
     else
     {
         hyp_err("%dth VM: Not set", vm_idx);
-        return -RT_EINVAL;
+        ret = -RT_EINVAL;
     }
+
+    return ret;
 }
 
 #if defined(RT_USING_FINSH)
 rt_inline void object_split(int len)
 {
     while (len--) rt_kprintf("-");
-}
-
-void list_os_img(void)
-{
-    /*
-     *  msh >list_os_img
-     *  OS type   OS id vcpu mem(M)
-     *  --------- ----- ---- ------
-     *  RT-Thread     0    1     64
-     *  zephyr        1    2     64
-     */
-    const char *item_title = "OS type";
-    int maxlen = VM_NAME_SIZE;
-    rt_kprintf("%-*.s OS id vcpu mem(M)\n", maxlen, item_title);
-    object_split(maxlen);
-    rt_kprintf(" ----- ---- ------\n");
-
-    for (rt_size_t i = 0; i < MAX_OS_NUM; i++)
-    {
-        const struct os_desc *os = &os_img[i];
-        if (os)
-        {
-            rt_kprintf("%-*.*s %5d %4.1d %6d\n", maxlen, VM_NAME_SIZE, 
-                    os_type_str[os->img.type], i, os->cpu.num, os->mem.size);
-        }
-    }
 }
 
 void list_vm(void)
@@ -645,7 +542,7 @@ void list_vm(void)
     for (rt_size_t i = 0; i < MAX_VM_NUM; i++)
     {
         vm_t vm = &rt_hyp.vms[i];
-        if (vm)
+        if (vm->status != VM_STAT_IDLE)
         {
             if (i == rt_hyp.curr_vm)
                 fmt = "\033[34m%-*.*s %6.3d %-8.s %-10s %4.1d %8d\n\033[0m";
@@ -653,8 +550,8 @@ void list_vm(void)
                 fmt = "%-*.*s %6.3d %-8.s %-10s %4.1d %8d\n";
             
             rt_kprintf(fmt, maxlen, VM_NAME_SIZE, vm->name, vm->id,
-                    vm_stat_str[vm->status], os_type_str[vm->os->img.type],
-                    vm->os->cpu.num, vm->mm.mem_size);
+                    vm_stat_str[vm->status], os_type_str[vm->info.img_type],
+                    vm->info.nr_vcpus, MB(vm->info.va_size));
         }
     }
 }
@@ -687,7 +584,6 @@ void dump_virq(void)
 }
 
 MSH_CMD_EXPORT(print_el, print current EL);
-MSH_CMD_EXPORT(list_os_img, list all os support);
 MSH_CMD_EXPORT(list_vm, list all vm detail);
 MSH_CMD_EXPORT(help_vm, print hypervisor help info);
 MSH_CMD_EXPORT(create_vm, create new vm);
@@ -695,7 +591,6 @@ MSH_CMD_EXPORT(pick_vm, change current picking vm);
 MSH_CMD_EXPORT(run_vm, run vm by index);
 MSH_CMD_EXPORT(pause_vm, pause vm by index);
 MSH_CMD_EXPORT(halt_vm, halt vm by index);
-MSH_CMD_EXPORT(delete_vm, delete vm by index);
 MSH_CMD_EXPORT(dump_virq, for test);
 MSH_CMD_EXPORT(vm_info_init, for test);
 #endif /* RT_USING_FINSH */

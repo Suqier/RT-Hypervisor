@@ -386,7 +386,7 @@
 			device_type = "virtual_machine";
 			vmid = <0>;
 			type = <1>;
-			image_address = <0x0 0x46000000>;
+			image_address = <0x0 0x45000000>;
 			entry = <0x0 0x40008000>;
 			vcpus = <1>;
 			vcpu_affinity = <1>;
@@ -404,6 +404,7 @@
 					#address-cells = <0x1>;
 					#size-cells = <0x1>;
 					maintenance_interrupts = <25>;
+					virq_num = <128>;
 					/* GICD, GICR */
 					reg = <0x08000000 0x10000>, <0x080a0000 0x2000>;
 				};

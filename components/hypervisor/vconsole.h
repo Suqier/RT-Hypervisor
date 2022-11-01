@@ -27,7 +27,7 @@ void vc_attach(struct vm *vm);
 void console_mmio_handler(gp_regs_t regs, access_info_t acc);
 
 #if defined(RT_USING_FINSH)
-rt_err_t attach_vm(int argc, char **argv);
+rt_err_t attach_vm(void);
 #endif  /* RT_USING_FINSH */ 
 void detach_vm(void);
 

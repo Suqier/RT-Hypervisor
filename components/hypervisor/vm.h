@@ -98,6 +98,7 @@ struct vm_info
     rt_uint64_t gicd_addr;
     rt_uint64_t gicr_addr;
     rt_uint32_t maintenance_id;
+    rt_uint32_t virq_num;
 
     /* Device: UART */
     struct device_info devs[MAX_DEVS_NUM];
@@ -122,8 +123,6 @@ struct vm
     struct vm_arch *arch;
 
     /* A array for collect vcpu. */
-    rt_uint8_t nr_vcpus;
-    rt_uint32_t vcpu_affinity[MAX_VCPU_NUM];
     vcpu_t *vcpus;
 
     /* vGIC */
@@ -168,7 +167,7 @@ struct vcpu *vcpu_get_irq_owner(int ir);
  * For VM
  */
 rt_err_t os_img_load(vm_t vm);
-void vm_config_init(vm_t vm, rt_uint8_t vm_idx);
+void vm_config_init(vm_t vm);
 rt_err_t vm_init(vm_t vm);
 void vm_go(vm_t vm);
 void vm_suspend(vm_t vm);

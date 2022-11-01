@@ -166,49 +166,10 @@ void console_mmio_handler(gp_regs_t regs, access_info_t acc)
 }
 
 #if defined(RT_USING_FINSH)
-rt_err_t attach_vm(int argc, char **argv)
+rt_err_t attach_vm(void)
 {
-    /* 
-     * "i" for VM idx. for example: -i vm_idx
-     * attach VM before you check VM using list_vm
-     */
-    int opt;
-    rt_uint8_t vm_idx;
-    struct optparse options;
-    
-    optparse_init(&options, argv);
-    while ((opt = optparse(&options, "i:")) != -1) 
-    {
-        switch (opt) 
-        {
-        case 'i':
-            vm_idx = strtol((const char *)options.optarg, NULL, 10);
-            if(vm_idx < 0 || vm_idx >= MAX_VM_NUM)
-            {
-                hyp_err("%dth VM: Out of scope, can't attach it", vm_idx);
-                return -RT_EINVAL;
-            }
-
-            if (rt_hyp.vms[vm_idx].status == VM_STAT_IDLE)
-            {
-                hyp_err("%dth VM: Not use, can't attach it", vm_idx);
-                return -RT_EINVAL;
-            }
-
-            if (rt_hyp.vms[vm_idx].status != VM_STAT_ONLINE)
-            {
-                hyp_info("%d th VM: Not working, can't attach it", vm_idx);
-                return -RT_EINVAL;;
-            }
-
-            vc_attach(&rt_hyp.vms[vm_idx]);
-            break;
-        case '?':
-            hyp_err("%s: %s", argv[0], options.errmsg);
-            return -RT_ERROR;
-        }
-    }
-    
+    rt_uint16_t vm_idx = rt_hyp.curr_vm;
+    vc_attach(&rt_hyp.vms[vm_idx]);
     return RT_EOK;
 }
 MSH_CMD_EXPORT(attach_vm, attach VM console);

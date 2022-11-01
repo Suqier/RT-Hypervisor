@@ -56,7 +56,7 @@ void vgicd_init(struct vm *vm, vgicd_t gicd)
     rt_uint32_t hw_base = platform_get_gic_dist_base();
 
     /* get from device tree */ 
-    gicd->virq_num = vm->os->arch.vgic.virq_num;
+    gicd->virq_num = vm->info.virq_num;
     for (rt_size_t i = 0; i < gicd->virq_num - VIRQ_PRIV_NUM; i++)
     {
         gicd->virqs[i].vINIID = i + VIRQ_PRIV_NUM;
@@ -75,7 +75,7 @@ void vgicd_init(struct vm *vm, vgicd_t gicd)
     gicd->CTLR = 0;
     gicd->IIDR = GIC_DIST_IIDR(hw_base);
     gicd->TYPE = ((it_line_num << GICD_TYPE_IT_OFF) & GICD_TYPE_IT_MASK) |
-    (((vm->nr_vcpus - 1) << GICD_TYPE_CPU_OFF) & GICD_TYPE_CPU_MASK) |
+    (((vm->info.nr_vcpus - 1) << GICD_TYPE_CPU_OFF) & GICD_TYPE_CPU_MASK) |
     (((10 - 1) << GICD_TYPE_IDBITS_OFF) & GICD_TYPE_IDBITS_MASK);
 }
 
@@ -88,7 +88,7 @@ void vgicr_init(vgicr_t gicr, struct vcpu *vcpu)
     gicr->IIDR = GIC_RDIST_IIDR(hw_base);
     gicr->TYPE = vcpu->id << GICR_TYPE_PN_OFF | 
     (vcpu->arch->vcpu_ctxt.sys_regs[_MPIDR_EL1] & MPIDR_AFF_MSK) << GICR_TYPE_AFF_OFF |
-    !!(vcpu->id == vcpu->vm->nr_vcpus - 1) << GICR_TYPE_LAST_OFF;
+    !!(vcpu->id == vcpu->vm->info.nr_vcpus - 1) << GICR_TYPE_LAST_OFF;
 
     /* get from device tree */ 
     rt_memset((void *)&gicr->lr_list, 0, GIC_LR_LIST_NUM * sizeof(rt_uint64_t));
@@ -134,7 +134,7 @@ void vgic_init(struct vm *vm)
 
     vm->vgic->gicd = gicd;
     vgicd_init(vm, v->gicd);
-    for (rt_size_t i = 0; i < vm->nr_vcpus; i++)
+    for (rt_size_t i = 0; i < vm->info.nr_vcpus; i++)
     {
         if (vm->vcpus[i])
         {
@@ -876,7 +876,7 @@ void vgic_virq_mount(struct vm *vm, int ir)
 {
     RT_ASSERT(vm);
 
-    for (rt_size_t i = 0; i < vm->nr_vcpus; i++)
+    for (rt_size_t i = 0; i < vm->info.nr_vcpus; i++)
     {
         if (vm->vcpus[i])
         {
@@ -895,7 +895,7 @@ void vgic_virq_umount(struct vm *vm, int ir)
 {
     RT_ASSERT(vm);
 
-    for (rt_size_t i = 0; i < vm->nr_vcpus; i++)
+    for (rt_size_t i = 0; i < vm->info.nr_vcpus; i++)
     {
         if (vm->vcpus[i])
         {

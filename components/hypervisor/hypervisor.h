@@ -47,7 +47,6 @@ struct hypervisor
 #endif
 
     struct vm vms[MAX_VM_NUM];
-    rt_uint32_t vm_bitmap;
     rt_uint32_t total_vm;
     rt_uint32_t curr_vm;
     rt_uint32_t curr_vc;
@@ -57,7 +56,7 @@ struct hypervisor
 
 extern struct hypervisor rt_hyp;
 
-rt_err_t rt_hypervisor_init(void);
+int rt_hypervisor_init(void);
 
 void list_os_img(void);
 void list_vm(void);

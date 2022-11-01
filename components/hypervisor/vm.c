@@ -75,7 +75,7 @@ vcpu_t vcpu_create(vm_t vm, rt_uint32_t vcpu_id)
 
 	rt_memset(name, 0, VM_NAME_SIZE);
 	sprintf(name, "m%d_c%d", vm->id, vcpu_id);
-	tid = rt_thread_create(name, (void *)(vm->os->img.ep), RT_NULL, 
+	tid = rt_thread_create(name, (void *)(vm->info.img_entry), RT_NULL, 
                         4096, FINSH_THREAD_PRIORITY + 1, THREAD_TIMESLICE);
 	if (tid == RT_NULL)
     {
@@ -83,7 +83,7 @@ vcpu_t vcpu_create(vm_t vm, rt_uint32_t vcpu_id)
 		return RT_NULL;
     }
 
-    vcpu->affinity = vm->os[vm->os_idx].cpu.affinity[vcpu_id];    /* affinity */
+    vcpu->affinity = vm->info.affinity[vcpu_id];
     vcpu->arch = arch;
     vcpu->status = VCPU_STAT_NEVER_RUN;
     tid->vcpu = vcpu;
@@ -112,12 +112,12 @@ void vcpu_free(vcpu_t vcpu)
 
 rt_err_t vcpus_create(vm_t vm)
 {
-    for (rt_size_t i = 0; i < vm->nr_vcpus; i++)
+    for (rt_size_t i = 0; i < vm->info.nr_vcpus; i++)
     {
         vcpu_t vcpu = vcpu_create(vm, i);
         if (vcpu == RT_NULL)
         {
-            for (rt_size_t j = 0; j < vm->nr_vcpus; j++)
+            for (rt_size_t j = 0; j < vm->info.nr_vcpus; j++)
             {
                 vcpu = vm->vcpus[j];
                 if (vcpu)
@@ -131,7 +131,7 @@ rt_err_t vcpus_create(vm_t vm)
         }
     }
 
-    hyp_info("%dth VM: Create %d vCPUs success", vm->id, vm->nr_vcpus);
+    hyp_info("%dth VM: Create %d vCPUs success", vm->id, vm->info.nr_vcpus);
     return RT_EOK;
 }
 
@@ -226,7 +226,7 @@ struct vcpu *vcpu_get_irq_owner(int ir)
             
             if (ir < VIRQ_PRIV_NUM)     /* Find vIRQ in gicr */
             {
-                for (rt_size_t j = 0; j < rt_hyp.vms[i].nr_vcpus; j++)
+                for (rt_size_t j = 0; j < rt_hyp.vms[i].info.nr_vcpus; j++)
                 {
                     if (v->gicr[j])
                     {
@@ -260,10 +260,9 @@ struct vcpu *vcpu_get_irq_owner(int ir)
  */
 rt_err_t os_img_load(vm_t vm)		
 {
-    void *src = (void *)vm->os->img.addr;
-    rt_uint64_t dst_va = vm->os->img.ep;
-    rt_ubase_t dst_pa = 0x0UL;
-    rt_ubase_t count = vm->os->img.size, copy_size;
+    void *src = (void *)vm->info.img_addr;
+    rt_uint64_t dst_va = vm->info.img_entry, dst_pa = 0x0UL;
+    rt_uint64_t count = vm->info.img_size, copy_size;
     rt_err_t ret;
 
     do
@@ -289,20 +288,16 @@ rt_err_t os_img_load(vm_t vm)
     return RT_EOK;
 }
 
-void vm_config_init(vm_t vm, rt_uint8_t vm_idx)
+void vm_config_init(vm_t vm)
 {
-    vm->id = vm_idx;
-    hyp_info("Allocate VM id is %03d", vm_idx);
-    vm->status = VM_STAT_NEVER_RUN;
+    hyp_info("Allocate VM id is %03d", vm->id);
+    vm->mm.mem_size = vm->info.va_size;
+    vm->mm.mem_used = 0;
+    rt_list_init(&vm->dev_list);
 
 #ifdef RT_USING_SMP
     rt_hw_spin_lock_init(&vm->vm_lock);
 #endif
-    
-    vm->mm.mem_size = vm->os->mem.size;
-    vm->mm.mem_used = 0;
-    vm->nr_vcpus = vm->os->cpu.num;
-    rt_list_init(&vm->dev_list);
 }
 
 rt_err_t vm_init(vm_t vm)
@@ -312,7 +307,7 @@ rt_err_t vm_init(vm_t vm)
      * It only has memory for struct vm, 
      * It needs more memory for vcpu and device.
      */
-    vm->vcpus = (struct vcpu **)rt_malloc(sizeof(struct vcpu *) * vm->nr_vcpus);
+    vm->vcpus = (struct vcpu **)rt_malloc(sizeof(struct vcpu *) * vm->info.nr_vcpus);
     vm->arch =  (struct vm_arch *)rt_malloc(sizeof(struct vm_arch));
     if (vm->vcpus == RT_NULL || vm->arch == RT_NULL)
     {
@@ -320,6 +315,7 @@ rt_err_t vm_init(vm_t vm)
         return -RT_ENOMEM;
     }
 
+    vm_config_init(vm);
     ret = vm_mm_struct_init(&vm->mm);
     if (ret)
         return ret;
@@ -367,7 +363,7 @@ void vm_suspend(struct vm * vm)
     rt_hw_spin_lock(&vm->vm_lock);
 #endif
 
-    for (rt_size_t i = 0; i < vm->nr_vcpus; i++)
+    for (rt_size_t i = 0; i < vm->info.nr_vcpus; i++)
     {
         vcpu = vm->vcpus[i];
         ret = rt_thread_suspend(vcpu->tid);
@@ -389,7 +385,7 @@ void vm_shutdown(vm_t vm)
 {
     if (vm)
     {
-        for (rt_size_t i = 0; i < vm->nr_vcpus; i++)
+        for (rt_size_t i = 0; i < vm->info.nr_vcpus; i++)
         {
             vcpu_t vcpu = vm->vcpus[i];
             rt_thread_delete(vcpu->tid);
@@ -406,7 +402,7 @@ void vm_free(vm_t vm)
     vgic_free(vm->vgic);
 
     /* free vCPUs resource */
-    for (rt_size_t i = 0; i < vm->nr_vcpus; i++)
+    for (rt_size_t i = 0; i < vm->info.nr_vcpus; i++)
         vcpu_free(vm->vcpus[i]);
 
     /* free other resource, like memory resouece & @TODO */

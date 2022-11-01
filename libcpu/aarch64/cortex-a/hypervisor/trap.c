@@ -89,15 +89,15 @@ rt_inline rt_bool_t is_fa_in(rt_uint64_t fa, rt_uint64_t base, rt_uint64_t size)
 
 rt_inline rt_bool_t is_access_vgicd(rt_uint64_t fa)
 {
-    const struct os_desc *os = get_curr_vm()->os;
-    rt_uint64_t d = os->arch.vgic.gicd_addr;
+    struct vm_info *info = &get_curr_vm()->info;
+    rt_uint64_t d = info->gicd_addr;
     return is_fa_in(fa, d, VGIC_GICD_SIZE);
 }
 
 rt_inline rt_bool_t is_access_vgicr(rt_uint64_t fa)
 {
-    const struct os_desc *os = get_curr_vm()->os;
-    rt_uint64_t r = os->arch.vgic.gicr_addr;
+    struct vm_info *info = &get_curr_vm()->info;
+    rt_uint64_t r = info->gicr_addr;
     return is_fa_in(fa, r, VGIC_GICR_SIZE);
 }
 
