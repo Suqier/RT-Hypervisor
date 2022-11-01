@@ -10,7 +10,7 @@
 
 #include <rtdef.h>
 
-#include "os.h"
+#include "vm.h"
 #include "mm.h"
 #include "hyp_debug.h"
 

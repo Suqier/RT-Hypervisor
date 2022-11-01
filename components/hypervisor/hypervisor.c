@@ -11,7 +11,6 @@
 #include "bitmap.h"
 #include "hypervisor.h"
 #include "switch.h"
-#include "os.h"
 #include "hyp_debug.h"
 #include "hyp_fdt.h"
 
@@ -30,7 +29,6 @@ static struct rt_thread hyp_cpu_init[RT_CPUS_NR];
 static rt_uint8_t hyp_stack[RT_CPUS_NR][2048];
 static int parameter[RT_CPUS_NR];
 
-extern const struct os_desc os_img[MAX_OS_NUM];
 extern const char* vm_stat_str[VM_STAT_UNKNOWN + 1];
 extern const char* os_type_str[OS_TYPE_OTHER + 1];
 

@@ -18,7 +18,6 @@
 #include "vtimer.h"
 #include "vgic.h"
 #include "vm.h"
-#include "os.h"
 #include "hyp_debug.h"
 
 extern struct hypervisor rt_hyp;

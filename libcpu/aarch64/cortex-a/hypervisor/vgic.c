@@ -15,12 +15,8 @@
 #include "gicv3.h"
 #include "vgic.h"
 #include "vm.h"
-#include "os.h"
 #include "hyp_debug.h"
-
-#define MAX_OS_NUM  3
-
-extern const struct os_desc os_img[MAX_OS_NUM];
+#include "virt_arch.h"
 
 const static struct vgic_ops vgic_ops = 
 {
@@ -113,25 +109,22 @@ void vgicr_init(vgicr_t gicr, struct vcpu *vcpu)
         gicr->virqs[i].cfg = 0b10;
 }
 
-static void vgic_info_init(struct vgic_info *info, rt_uint64_t os_idx)
+static void vgic_info_init(struct vgic_info *info, struct vm *vm)
 {
-    info->gicd_addr = os_img[os_idx].arch.vgic.gicd_addr;
-    info->gicr_addr = os_img[os_idx].arch.vgic.gicr_addr;
+    info->gicd_addr = vm->info.gicd_addr;
+    info->gicr_addr = vm->info.gicr_addr;
 }
 
 void vgic_init(struct vm *vm)
 {
     RT_ASSERT(vm);
     vgic_t v = &vm->vgic;
-    rt_uint64_t os_idx = vm->os_idx;
-
     vgicd_t gicd = (vgicd_t)rt_malloc(sizeof(struct vgicd));
     if (gicd == RT_NULL)
     {
         hyp_err("%dth VM: Allocate memory for gicd failure", vm->id);
         return;
     }
-
     vm->vgic.gicd = gicd;
     vgicd_init(vm, v->gicd);
     for (rt_size_t i = 0; i < vm->info.nr_vcpus; i++)
@@ -147,7 +140,7 @@ void vgic_init(struct vm *vm)
             break;
     }
 
-    vgic_info_init(&v->info, os_idx);
+    vgic_info_init(&v->info, vm);
     rt_memset((void *)&v->ctxt, 0, sizeof(struct vgic_context));
     v->ops = &vgic_ops;
 
@@ -845,30 +838,6 @@ virq_t vgic_get_virq(struct vcpu *vcpu, int ir)
         return &vcpu->vm->vgic.gicr[vcpu->id]->virqs[ir];
     else
         return &vcpu->vm->vgic.gicd->virqs[ir - VIRQ_PRIV_NUM];
-}
-
-void vgic_virq_register(struct vm *vm)
-{
-    /* Associated Physical Interrupts */
-    const struct devs_info *devs = &os_img[vm->os_idx].devs;
-
-    for (rt_size_t i = 0; i < devs->num; i++)
-    {
-        rt_uint8_t int_num = devs->dev[i].interrupt_num;
-        
-        for (rt_size_t j = 0; j < int_num; j++)
-        {
-            rt_uint64_t virq_id = *devs->dev[i].interrupts;
-
-            if (virq_id < VIRQ_PRIV_NUM)   /* SGI + PPI */
-                continue;
-            else    /* SPI */
-            {
-                virq_t virq = &vm->vgic.gicd->virqs[virq_id];
-                virq->hw = RT_TRUE;
-            }
-        }
-    }
 }
 
 /* After Host allocate someone device into VM, than mount VM's vIRQ. */

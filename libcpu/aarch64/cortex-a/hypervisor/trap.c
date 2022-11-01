@@ -9,7 +9,6 @@
  */
 
 #include <bitmap.h>
-#include <os.h>
 #include <vm.h>
 #include <vdev.h>
 #include <vtimer.h>

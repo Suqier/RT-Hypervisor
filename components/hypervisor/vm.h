@@ -59,6 +59,13 @@ struct vcpu
 }__attribute__((aligned(L1_CACHE_BYTES)));
 typedef struct vcpu *vcpu_t;
 
+enum
+{
+    OS_TYPE_LINUX = 0,
+    OS_TYPE_RT_THREAD,
+    OS_TYPE_OTHER,
+};
+
 enum 
 {
     VM_STAT_IDLE = 0,
@@ -69,7 +76,7 @@ enum
     VM_STAT_UNKNOWN,
 };
 
-struct device_info
+struct dev_info
 {
     rt_uint64_t pa_addr;
     rt_uint64_t va_addr;
@@ -102,7 +109,7 @@ struct vm_info
     rt_uint32_t virq_num;
 
     /* Device: UART */
-    struct device_info devs[MAX_DEVS_NUM];
+    struct dev_info devs[MAX_DEVS_NUM];
     rt_uint32_t dev_num;
 };
 
@@ -114,8 +121,6 @@ struct vm
     char name[VM_NAME_SIZE];
     struct mm_struct mm;    /* userspace tied to this vm */
     struct vm_info info;
-    const struct os_desc *os;
-    rt_uint8_t os_idx;
 
 #ifdef RT_USING_SMP
     rt_hw_spinlock_t vm_lock;

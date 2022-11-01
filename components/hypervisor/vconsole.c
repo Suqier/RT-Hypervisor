@@ -16,13 +16,9 @@
 #include "vconsole.h"
 #include "hypervisor.h"
 #include "vgic.h"
-#include "os.h"
 #include "hyp_debug.h"
 
 extern struct hypervisor rt_hyp;
-
-#define MAX_OS_NUM  3
-extern const struct os_desc os_img[MAX_OS_NUM];
 
 const static struct vdev_ops vc_ops = 
 {
@@ -34,11 +30,11 @@ const static struct vdev_ops vc_ops =
  */
 void get_vc_mmap_region(vdev_t vc, struct vm *vm)
 {
-    struct dev_info *dev    = os_img[vm->os_idx].devs.dev;
+    struct dev_info *dev    = &vm->info.devs[0];    /* @todo */
 
-    vc->region->paddr_start = dev->paddr;
-    vc->region->vaddr_start = dev->vaddr;
-    vc->region->vaddr_end   = dev->vaddr + dev->size;
+    vc->region->paddr_start = dev->pa_addr;
+    vc->region->vaddr_start = dev->va_addr;
+    vc->region->vaddr_end   = dev->va_addr + dev->size;
     vc->region->attr        = DEVICE_MEM;
 }
 

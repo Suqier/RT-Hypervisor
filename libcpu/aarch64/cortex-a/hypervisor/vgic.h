@@ -309,7 +309,6 @@ void hook_vgic_context_save(struct vcpu *vcpu);
 void hook_vgic_context_restore(struct vcpu *vcpu);
 
 virq_t vgic_get_virq(struct vcpu *vcpu, int ir);
-void vgic_virq_register(struct vm *vm);
 void vgic_virq_mount(struct vm *vm, int ir);
 void vgic_virq_umount(struct vm *vm, int ir);
 
