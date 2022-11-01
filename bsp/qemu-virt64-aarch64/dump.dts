@@ -417,6 +417,42 @@
 				};
 			};
 		};
+
+		vm@1 {
+			device_type = "virtual_machine";
+			vmid = <1>;
+			type = <1>;
+			image_address = <0x0 0x45000000>;
+			entry = <0x0 0x40008000>;
+			vcpus = <1>;
+			vcpu_affinity = <1>;
+			memory = <0x0 0x40000000 0x0 0x600000>;
+			phymem = <0x0 0x47000000 0x0 0x1000000>;
+
+			vm1_device {	/* need fix */
+				#address-cells = <0x1>;
+				#size-cells = <0x1>;
+
+				vtimer_irq = <27>;
+
+				vm1_vgic {
+					compatible = "arm,gicv3";
+					#address-cells = <0x1>;
+					#size-cells = <0x1>;
+					maintenance_interrupts = <25>;
+					virq_num = <128>;
+					/* GICD, GICR */
+					reg = <0x08000000 0x10000>, <0x080a0000 0x2000>;
+				};
+
+				vm1_vc {
+					virtual_device;
+					compatible = "rt_thread,vm_console";
+					reg = <0x09000000 0x00001000>;
+					interrupts = <0 0 33>;
+				};
+			};
+		};
 	};
 
 	chosen {

@@ -849,13 +849,14 @@ void vgic_virq_mount(struct vm *vm, int ir)
     {
         if (vm->vcpus[i])
         {
-           virq_t virq = vgic_get_virq(vm->vcpus[i], ir);
-           if (virq->enable == RT_TRUE)
-           {
-                virq->hw     = RT_TRUE;
-                virq->pINTID = ir;
-                return;
-           }
+            virq_t virq = vgic_get_virq(vm->vcpus[i], ir);
+            RT_ASSERT(virq->enable);
+            if (virq->enable == RT_TRUE)
+            {
+                    virq->hw     = RT_TRUE;
+                    virq->pINTID = ir;
+                    return;
+            }
         }
     }
 }

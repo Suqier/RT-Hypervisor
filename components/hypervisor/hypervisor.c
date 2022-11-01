@@ -288,7 +288,7 @@ static rt_err_t __init_subsystems(void)
         hyp_info("All CPU hyp enabled");
     else
     {
-        hyp_err("CPU hyp disable");
+        // hyp_err("CPU hyp disable");
         return -RT_ERROR;
     }
     
@@ -325,12 +325,53 @@ int rt_hypervisor_init(void)
 }
 INIT_APP_EXPORT(rt_hypervisor_init);
 
+#if defined(RT_USING_FINSH)
 void help_vm(void)
 {
     rt_kprintf("RT-Hypervisor shell command:\n");    
     rt_kprintf("%2s- %s\n", "help_vm", "print hypervisor related command.");
     rt_kprintf("%2s- %s\n", "list_vm", "list all vm details.");
     rt_kprintf("%2s- %s\n", "create_vm", "create new vm.");
+}
+
+rt_inline void object_split(int len)
+{
+    while (len--) rt_kprintf("-");
+}
+
+void list_vm(void)
+{
+    const char *item_title = "vm name";
+    int maxlen = VM_NAME_SIZE;
+    char *fmt;
+
+    /*
+     *  msh >list_vm
+     *  vm name           vm id status       OS     vcpu  mem(M)
+     *  ---------------- ------ -------- ---------- ---- -------
+     *  linux_test_1        001 offline  Linux         4      64
+     *  Zephyr_test         002 never    Zephyr        1      64
+     */
+    rt_kprintf("%-*.s  vm id status   OS type    vcpu mem(M)\n", 
+            maxlen, item_title);
+    object_split(maxlen);
+    rt_kprintf(" ------ -------- ---------- ---- ------\n");
+
+    for (rt_size_t i = 0; i < MAX_VM_NUM; i++)
+    {
+        vm_t vm = &rt_hyp.vms[i];
+        if (vm->status != VM_STAT_IDLE)
+        {
+            if (i == rt_hyp.curr_vm)
+                fmt = "\033[34m%-*.*s %6.3d %-8.s %-10s %4.1d %6d\n\033[0m";
+            else
+                fmt = "%-*.*s %6.3d %-8.s %-10s %4.1d %6d\n";
+            
+            rt_kprintf(fmt, maxlen, VM_NAME_SIZE, vm->name, vm->id,
+                    vm_stat_str[vm->status], os_type_str[vm->info.img_type],
+                    vm->info.nr_vcpus, MB(vm->info.va_size));
+        }
+    }
 }
 
 void pick_vm(int argc, char **argv)
@@ -358,22 +399,13 @@ void pick_vm(int argc, char **argv)
 #ifdef RT_USING_SMP
             rt_hw_spin_unlock(&rt_hyp.hyp_lock);
 #endif 
+            list_vm();
             break;
         case '?':
             hyp_err("%s: %s", argv[0], options.errmsg);
             return;
         }
     }
-
-#ifdef RT_USING_SMP
-    rt_hw_spin_lock(&rt_hyp.hyp_lock);
-#endif
-
-    rt_hyp.curr_vm = vm_idx;
-
-#ifdef RT_USING_SMP
-    rt_hw_spin_unlock(&rt_hyp.hyp_lock);
-#endif
 }
 
 rt_err_t run_vm(void)
@@ -476,47 +508,6 @@ rt_err_t halt_vm(void)
     }
 
     return ret;
-}
-
-#if defined(RT_USING_FINSH)
-rt_inline void object_split(int len)
-{
-    while (len--) rt_kprintf("-");
-}
-
-void list_vm(void)
-{
-    const char *item_title = "vm name";
-    int maxlen = VM_NAME_SIZE;
-    char *fmt;
-
-    /*
-     *  msh >list_vm
-     *  vm name           vm id status       OS     vcpu  mem(M)
-     *  ---------------- ------ -------- ---------- ---- -------
-     *  linux_test_1        001 offline  Linux         4      64
-     *  Zephyr_test         002 never    Zephyr        1      64
-     */
-    rt_kprintf("%-*.s  vm id status   OS type    vcpu  mem(M)\n", 
-            maxlen, item_title);
-    object_split(maxlen);
-    rt_kprintf(" ------ -------- ---------- ---- --------\n");
-
-    for (rt_size_t i = 0; i < MAX_VM_NUM; i++)
-    {
-        vm_t vm = &rt_hyp.vms[i];
-        if (vm->status != VM_STAT_IDLE)
-        {
-            if (i == rt_hyp.curr_vm)
-                fmt = "\033[34m%-*.*s %6.3d %-8.s %-10s %4.1d %8d\n\033[0m";
-            else
-                fmt = "%-*.*s %6.3d %-8.s %-10s %4.1d %8d\n";
-            
-            rt_kprintf(fmt, maxlen, VM_NAME_SIZE, vm->name, vm->id,
-                    vm_stat_str[vm->status], os_type_str[vm->info.img_type],
-                    vm->info.nr_vcpus, MB(vm->info.va_size));
-        }
-    }
 }
 
 void print_el(void)
