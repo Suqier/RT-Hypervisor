@@ -98,7 +98,7 @@ void vc_detach(vdev_t vc)
         rt_device_close(vc->dev);
         vc->is_open = RT_FALSE;
         rt_hyp.curr_vc = MAX_VM_NUM;
-        vgic_virq_umount(vc->vm, PL011_UART0_IRQNUM);
+        vgic_virq_umount(vc->vm, PL011_UART0_IRQNUM);   /* @todo */
     }
 
     /* attach Host console */
@@ -115,7 +115,7 @@ void vc_attach(struct vm *vm)
     {
         /* Close Host console */
         hyp_info("Close Host console, Change to %dth VM", vm->id);
-        rt_console_close_device();
+        // rt_console_close_device();
     }
     else    /* It's someone VM vConsole using UART */
     {
@@ -133,7 +133,7 @@ void vc_attach(struct vm *vm)
             rt_hyp.curr_vc = vm->id;
 
             /* Allocate device to VM then mount vIRQ */
-            vgic_virq_mount(vm, PL011_UART0_IRQNUM);
+            vgic_virq_mount(vm, PL011_UART0_IRQNUM);    /* @todo */
             return;
         }
     }
@@ -154,7 +154,7 @@ void console_mmio_handler(gp_regs_t regs, access_info_t acc)
 
     if (acc.is_write)
     {
-        if (*val == 0x2)    /* ctrl + B to quit VM*/
+        if (*val == 0x2)    /* ctrl + B to quit VM */
         {
             hyp_debug("Ctrl + B, quit VM");
             vc_detach(vc);
@@ -170,6 +170,13 @@ void console_mmio_handler(gp_regs_t regs, access_info_t acc)
 rt_err_t attach_vm(void)
 {
     rt_uint16_t vm_idx = rt_hyp.curr_vm;
+    rt_uint16_t stat = rt_hyp.vms[vm_idx].status;
+    if (stat != VM_STAT_ONLINE && stat != VM_STAT_SUSPEND)
+    {
+        hyp_err("VM not running, can't attach it");
+        return -RT_EINVAL;
+    }
+    
     vc_attach(&rt_hyp.vms[vm_idx]);
     return RT_EOK;
 }

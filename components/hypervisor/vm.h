@@ -14,6 +14,7 @@
 #include "mm.h"
 #include "vconsole.h"
 #include "vgic.h"
+#include "vtimer.h"
 
 #define THREAD_TIMESLICE    5
 
@@ -53,7 +54,7 @@ struct vcpu
 
     struct vm *vm;
     rt_thread_t tid;
-    struct vtimer_context *vtc;
+    struct vtimer_context vtc;
 
     struct vcpu_arch *arch;  /* vcpu arch related content. */
 }__attribute__((aligned(L1_CACHE_BYTES)));

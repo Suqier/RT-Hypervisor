@@ -48,23 +48,24 @@ void ec_hvc64_handler(struct rt_hw_exp_stack *regs, rt_uint32_t esr)
 void ec_sys64_handler(struct rt_hw_exp_stack *regs, rt_uint32_t esr)
 {
     /* Just emulate a little part of system registers */
-    rt_bool_t is_write;
-    rt_uint32_t val, srt;
-    rt_uint64_t reg_name;
+    rt_uint32_t val;
 
     val = esr & ESR_DIRECTION_MASK;
-    is_write = (val == ESR_DIRECTION_READ) ? RT_FALSE : RT_TRUE;
-    srt = (esr & ESR_RT_MASK) >> ESR_RT_SHIFT;
-    reg_name = esr & ESR_SYSREG_MASK;
+    access_info_t acc = 
+    {
+        .addr     = esr & ESR_SYSREG_MASK,
+        .srt      = (esr & ESR_RT_MASK) >> ESR_RT_SHIFT,
+        .is_write = (val == ESR_DIRECTION_READ) ? RT_FALSE : RT_TRUE,
+    };
 
-    switch (reg_name)
+    switch (acc.addr)
     {
     /* timer sysreg handler */
     case ESR_SYSREG_CNTPCT_EL0:
     case ESR_SYSREG_CNTP_TVAL_EL0:
     case ESR_SYSREG_CNTP_CTL_EL0:
     case ESR_SYSREG_CNTP_CVAL_EL0:
-        sysreg_vtimer_handler(regs, reg_name, is_write, srt);
+        sysreg_vtimer_handler(regs, acc);
         break;
     
     default:

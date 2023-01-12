@@ -281,6 +281,7 @@ void host_to_guest_arch_handler(struct vcpu *vcpu)
     activate_trap(vcpu);
     load_stage2_setting(vcpu);  // interrupts disabled ?
     hook_vgic_context_restore(vcpu);
+    hook_vtimer_context_restore(&vcpu->vtc, vcpu);
 }
 
 /*
@@ -293,10 +294,11 @@ void guest_to_host_arch_handler(struct vcpu *vcpu)
     deactivate_trap(vcpu);
     hook_vcpu_regs_save(vcpu);
     hook_vgic_context_save(vcpu);
+    hook_vtimer_context_save(&vcpu->vtc, vcpu);
 }
 
 /* 
- * From vCPU_1 to vCPU_2 in same vm, most of runtime env need not to change.
+ * From vCPU_1 to vCPU_2 in same VM, most of runtime env need not to change.
  * Just GP_REGs need to change by RESTORE_CONTEXT & SAVE_CONTEXT.
  */
 void vcpu_to_vcpu_arch_handler(vcpu_t from, struct vcpu *to)
@@ -305,7 +307,7 @@ void vcpu_to_vcpu_arch_handler(vcpu_t from, struct vcpu *to)
 }
 
 /*
- * From vCPU_1 to vCPU_2 in different vm.
+ * From vCPU_1 to vCPU_2 in different VM.
  */
 void guest_to_guest_arch_handler(struct vcpu *from, struct vcpu *to)
 {

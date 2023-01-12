@@ -17,6 +17,7 @@
 #include <interrupt.h>
 
 #include "lib_helpers.h"
+#include "hyp_debug.h"
 
 #ifdef RT_USING_FINSH
 extern long list_thread(void);
@@ -198,8 +199,8 @@ void rt_hw_trap_irq(void)      /* Add Hypervisor handle IRQ later */
     {
         virq_t virq = vgic_get_virq(vcpu, ir);
 
-        if (vcpu->status == VCPU_STAT_ONLINE 
-        ||  vcpu->status == VCPU_STAT_SUSPEND)
+        rt_uint16_t stat = vcpu->status;
+        if (stat == VCPU_STAT_ONLINE || stat == VCPU_STAT_SUSPEND)
             vcpu->vm->vgic.ops->inject(vcpu, virq);
 
         rt_hw_interrupt_ack(ir);

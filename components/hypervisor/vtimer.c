@@ -8,85 +8,81 @@
  * 2022-10-06     Suqier       first version
  */
 
+#include <stdio.h>
+#include <string.h>
+#include <lib_helpers.h>
 #include <cpuport.h>
 
 #include "vgic.h"
 #include "vtimer.h"
 #include "trap.h"
 #include "hyp_debug.h"
+#include "vm.h"
 
-void vtimer_ctxt_init(vt_ctxt_t vtimer_ctxt, vcpu_t vcpu)
+void vtimer_ctxt_init(vt_ctxt_t virt_timer_ctxt, struct vcpu *vcpu)
 {
-    RT_ASSERT(vtimer_ctxt);
-    RT_ASSERT(vcpu);
+    RT_ASSERT(vcpu && virt_timer_ctxt);
+    virt_timer_ctxt->offset = 0UL;
 
-    vtimer_ctxt->offset = 0UL;
+    /* phy_timer init */
+    virt_timer_ctxt->phy_timer.vcpu    = vcpu;
+    virt_timer_ctxt->phy_timer.vINIID  = PTIMER_IRQ_NUM; 
+    virt_timer_ctxt->phy_timer.ctl     = 0;
+    virt_timer_ctxt->phy_timer.cval    = 0;
+    virt_timer_ctxt->phy_timer.freq    = PTIMER_FREQ;
 
-    /* ptimer init */
-    vtimer_ctxt->ptimer.vcpu   = vcpu;
-    vtimer_ctxt->ptimer.vINIID = PTIMER_IRQ_NUM; 
-    vtimer_ctxt->ptimer.ctl    = 0;
-    vtimer_ctxt->ptimer.tval   = 0;
-    vtimer_ctxt->ptimer.freq   = PTIMER_FREQ;
-
-    /* vtimer init */
-    vtimer_ctxt->vtimer.vcpu   = vcpu;
-    vtimer_ctxt->vtimer.vINIID = VTIMER_IRQ_NUM;
-    vtimer_ctxt->vtimer.ctl    = 0;
-    vtimer_ctxt->vtimer.tval   = 0;
-    vtimer_ctxt->vtimer.freq   = VTIMER_FREQ;
+    /* virt_timer init */
+    virt_timer_ctxt->virt_timer.vcpu   = vcpu;
+    virt_timer_ctxt->virt_timer.vINIID = VTIMER_IRQ_NUM;
+    virt_timer_ctxt->virt_timer.ctl    = 0;
+    virt_timer_ctxt->virt_timer.cval   = 0;
+    virt_timer_ctxt->virt_timer.freq   = VTIMER_FREQ;
 }
 
-void ptimer_timeout_function(void *parameter)
+void phy_timer_timeout_func(void *parameter)
 {
     /* inject vIRQ function */
-    hyp_debug("%s, %d", __FUNCTION__, __LINE__);
-
     vt_ctxt_t vtc = (vt_ctxt_t)parameter;
+    vtc->phy_timer.ctl |= CNTP_CTL_ISTATUS_MASK;
+    vtc->phy_timer.cval = 0UL;
 
-    vcpu_t vcpu = vtc->ptimer.vcpu;
-    virq_t virq = &vcpu->vm->vgic.gicr[vcpu->id].virqs[vtc->ptimer.vINIID];
-
-    vcpu->vm->vgic.ops->inject(vcpu, virq);
+    if (!(vtc->phy_timer.ctl & CNTP_CTL_IMASK_MASK))
+    {
+        struct vcpu *vcpu = vtc->phy_timer.vcpu;
+        virq_t virq = &vcpu->vm->vgic.gicr[vcpu->id].virqs[vtc->phy_timer.vINIID];
+        vcpu->vm->vgic.ops->inject(vcpu, virq);
+    }
 }
  
-void vtimer_timeout_function(void *parameter) {}
-
-rt_err_t vtimer_ctxt_create(vcpu_t vcpu)
+void virt_timer_timeout_func(void *parameter) 
 {
-    vt_ctxt_t vt_ctxt = (vt_ctxt_t)rt_malloc(sizeof(struct vtimer_context));
-    if (vt_ctxt == RT_NULL)
-    {
-        rt_free(vt_ctxt);
-        hyp_err("Create vTimer failure for vcpu-%d", vcpu->id);
-        return -RT_ENOMEM;
-    }
-    else
-    {
-        rt_timer_t ptimer = rt_timer_create("ptimer", ptimer_timeout_function, 
-                            (void *)vt_ctxt, PTIMER_FREQ, 
-                            RT_TIMER_FLAG_PERIODIC | RT_TIMER_FLAG_SOFT_TIMER);
-        rt_timer_t vtimer = rt_timer_create("ptimer", vtimer_timeout_function, 
-                            (void *)vt_ctxt, PTIMER_FREQ, 
-                            RT_TIMER_FLAG_PERIODIC | RT_TIMER_FLAG_SOFT_TIMER);
-
-        if (!ptimer || !vtimer)
-            return -RT_ENOMEM;
-        
-        vt_ctxt->ptimer.timer = ptimer;
-        vt_ctxt->vtimer.timer = vtimer;
-        
-        vcpu->vtc = vt_ctxt;
-        vtimer_ctxt_init(vt_ctxt, vcpu);
-    }
-
-    return RT_EOK;
+    hyp_debug("%s, %d", __FUNCTION__, __LINE__);
 }
 
+void vtimer_init(struct vcpu *vcpu)
+{
+    vtimer_ctxt_init(&vcpu->vtc, vcpu);
+
+    char name[VM_NAME_SIZE];
+    rt_memset(name, 0, VM_NAME_SIZE);
+	sprintf(name, "m%d_c%d_phy" , vcpu->vm->id, vcpu->id);
+    rt_timer_init(&(vcpu->vtc.phy_timer.timer),  name, phy_timer_timeout_func,
+                (void *)&(vcpu->vtc), PTIMER_FREQ / RT_TICK_PER_SECOND / 1000, 
+                RT_TIMER_FLAG_PERIODIC | RT_TIMER_FLAG_SOFT_TIMER);
+
+	sprintf(name, "m%d_c%d_virt", vcpu->vm->id, vcpu->id);
+    rt_timer_init(&(vcpu->vtc.virt_timer.timer), name, virt_timer_timeout_func,
+                (void *)&(vcpu->vtc), PTIMER_FREQ / RT_TICK_PER_SECOND / 1000, 
+                RT_TIMER_FLAG_ONE_SHOT | RT_TIMER_FLAG_SOFT_TIMER);
+}
+
+/*
+ * Register handler
+ */
 static void vtimer_handler_cntp_ctl(rt_bool_t is_write, rt_uint64_t *reg_val)
 {
-    vcpu_t vcpu = get_curr_vcpu();
-    struct vtimer *timer = &vcpu->vtc->ptimer;
+    struct vcpu   *vcpu  = get_curr_vcpu();
+    struct vtimer *timer = &vcpu->vtc.phy_timer;
     
     if (is_write)
     {
@@ -98,10 +94,11 @@ static void vtimer_handler_cntp_ctl(rt_bool_t is_write, rt_uint64_t *reg_val)
 			v |= timer->ctl & CNTP_CTL_ISTATUS_MASK;
 		timer->ctl = v;
 
-        if ((timer->ctl & CNTP_CTL_ENABLE_MASK) && !(timer->ctl & CNTP_CTL_IMASK_MASK))
-            rt_timer_start(timer->timer);
+        if ((timer->ctl & CNTP_CTL_ENABLE_MASK) 
+        && !(timer->ctl & CNTP_CTL_IMASK_MASK))
+            rt_timer_start(&timer->timer);
 		else
-			rt_timer_stop(timer->timer);
+			rt_timer_stop(&timer->timer);
     }
     else    /* read */
     {
@@ -111,77 +108,114 @@ static void vtimer_handler_cntp_ctl(rt_bool_t is_write, rt_uint64_t *reg_val)
 
 static void vtimer_handler_cntp_tval(rt_bool_t is_write, rt_uint64_t *reg_val)
 {
-    vcpu_t vcpu = get_curr_vcpu();
-    struct vtimer *timer = &vcpu->vtc->ptimer;
+    struct vcpu   *vcpu  = get_curr_vcpu();
+    struct vtimer *timer = &vcpu->vtc.phy_timer;
+
+    if (is_write)
+    {
+        timer->cval = rt_hw_get_cntpct_val() + *reg_val;
+
+        if (timer->ctl & CNTP_CTL_ENABLE_MASK)
+        {
+            timer->ctl &= ~CNTP_CTL_ISTATUS_MASK;
+            rt_timer_control(&timer->timer, 
+                        RT_TIMER_CTRL_SET_TIME, (void *)reg_val);
+        }
+    }
+    else    /* read */
+    {
+        rt_uint64_t now  = rt_hw_get_cntpct_val() - vcpu->vtc.offset;
+        rt_uint64_t tval = (timer->cval - vcpu->vtc.offset - now) & 0xFFFFFFFF;
+        *reg_val = tval;
+    }
+}
+
+static void vtimer_handler_cntp_cval(rt_bool_t is_write, rt_uint64_t *reg_val)
+{
+    struct vcpu   *vcpu  = get_curr_vcpu();
+    struct vtimer *timer = &vcpu->vtc.phy_timer;
 
     if (is_write)
     {
         /* write into it will change timer setting */
-        timer->ctl &= ~CNTP_CTL_ISTATUS_MASK;
-        timer->tval = *reg_val;
-        rt_timer_control(timer->timer, RT_TIMER_CTRL_SET_TIME, (void *)reg_val);
+        timer->cval = *reg_val + vcpu->vtc.offset;
+        if (timer->ctl & CNTP_CTL_ENABLE_MASK)
+        {
+            timer->ctl &= ~CNTP_CTL_ISTATUS_MASK;
+            rt_timer_control(&timer->timer, 
+                        RT_TIMER_CTRL_SET_TIME, (void *)timer->cval);
+        }
     }
     else    /* read */
     {
-        *reg_val = timer->tval;
+        *reg_val = timer->cval - vcpu->vtc.offset;
     }
 }
 
-void sysreg_vtimer_handler(struct rt_hw_exp_stack *regs, rt_uint64_t reg_name,
-                        rt_bool_t is_write, rt_uint32_t srt)
+void sysreg_vtimer_handler(struct rt_hw_exp_stack *regs, access_info_t acc)
 {
-    rt_uint64_t *reg_val = (rt_uint64_t *)(is_write ? regs_xn(regs, srt) : 0);
+    rt_uint64_t *reg_val =
+                (rt_uint64_t *)(acc.is_write ? regs_xn(regs, acc.srt) : 0);
 
-    switch (reg_name)
+    switch (acc.addr)
     {
+        /* Guest OS access physical timer related registers */
     case ESR_SYSREG_CNTP_CTL_EL0:
-        vtimer_handler_cntp_ctl(is_write, reg_val);
+        vtimer_handler_cntp_ctl(acc.is_write, reg_val);
         break;
     case ESR_SYSREG_CNTP_TVAL_EL0:
-        vtimer_handler_cntp_tval(is_write, reg_val);
+        vtimer_handler_cntp_tval(acc.is_write, reg_val);
         break;
-    
+    case ESR_SYSREG_CNTP_CVAL_EL0:
+        vtimer_handler_cntp_cval(acc.is_write, reg_val);
+        break;
+
     default:
         break;
     }
 }
 
+void vtimer_free(struct vcpu *vcpu)
+{
+    RT_ASSERT(vcpu);
+    vt_ctxt_t virt_timer_ctxt = &vcpu->vtc;
+    rt_timer_stop(&virt_timer_ctxt->phy_timer.timer);
+    rt_timer_stop(&virt_timer_ctxt->virt_timer.timer);
+}
+
 /* 
  * hook for switch 
  * 
- * Main task for vtimer is to save/restore vtimer_context.
- * In vtimer_context, the value of vcpu/timer/vINTID/freq will not change,
+ * Main task for virt_timer is to save/restore virt_timer_context.
+ * In virt_timer_context, the value of vcpu/timer/vINTID/freq will not change,
  * So, we just need to save/restore ctl/tval value.
  */
-void hook_vtimer_context_save(vt_ctxt_t vtimer_ctxt, vcpu_t vcpu)
+void hook_vtimer_context_save(vt_ctxt_t virt_timer_ctxt, struct vcpu *vcpu)
 {
-    struct vtimer *timer = &vtimer_ctxt->ptimer;
+    struct vtimer *timer = &virt_timer_ctxt->virt_timer;
 
-    /* 
-     * save vtimer context(only ptimer now) for exit Guest OS, 
-     * record current wall time(sys tick).
-     */
-    GET_SYS_REG(CNTP_CTL_EL0, timer->ctl);
-    GET_SYS_REG(CNTP_TVAL_EL0, timer->tval);
-	SET_SYS_REG(CNTP_CTL_EL0, 0);
+    GET_SYS_REG(CNTV_CTL_EL0,  timer->ctl);
+    GET_SYS_REG(CNTV_CVAL_EL0, timer->cval);
+	SET_SYS_REG(CNTV_CTL_EL0,  0);
     __ISB();
 
-    vtimer_ctxt->offset = rt_hw_get_cntpct_val();
+	if ((timer->ctl & CNTP_CTL_ENABLE_MASK) && !(timer->ctl & CNTP_CTL_IMASK_MASK)) 
+    {
+        rt_timer_control(&timer->timer, 
+                        RT_TIMER_CTRL_SET_TIME, 
+                        (void *)(timer->cval + virt_timer_ctxt->offset));
+	}
 }
 
-void hook_vtimer_context_restore(vt_ctxt_t vtimer_ctxt, vcpu_t vcpu)
+void hook_vtimer_context_restore(vt_ctxt_t virt_timer_ctxt, struct vcpu *vcpu)
 {
-    struct vtimer *timer = &vtimer_ctxt->ptimer;
+    struct vtimer *timer = &virt_timer_ctxt->virt_timer;
+    rt_uint64_t   offset =  virt_timer_ctxt->offset;
+    
+    rt_timer_stop(&timer->timer);
 
-    /* 
-     * restore vtimer context(only ptimer now) for enter Guest OS,
-     * using offset to amend VM timer.
-     */
-    rt_uint64_t now = rt_hw_get_cntpct_val();
-    vtimer_ctxt->offset = now - vtimer_ctxt->offset;
-    timer->tval += vtimer_ctxt->offset;
-
-    SET_SYS_REG(CNTP_CTL_EL0, timer->ctl);
-    SET_SYS_REG(CNTP_TVAL_EL0, timer->tval);
+	SET_SYS_REG(CNTVOFF_EL2,   offset);
+    SET_SYS_REG(CNTV_CTL_EL0,  timer->ctl);
+    SET_SYS_REG(CNTV_CVAL_EL0, timer->cval);
     __ISB();
 }

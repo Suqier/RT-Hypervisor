@@ -71,21 +71,15 @@ rt_err_t vm_info_init(void)
                     
                     index = 0;
                     for_each_property_cell(vm_child, "vcpu_affinity", u32_val, u32_ptr, p_size)
-                    {
                         info->affinity[index++] = u32_val;
-                    }
                     
                     for_each_property_cell(vm_child, "image_address", u32_val, u32_ptr, p_size)
-                    {
                         info->img_addr = u32_val;
-                    }
                     
                     info->img_size = 0x20000;
 
                     for_each_property_cell(vm_child, "entry", u32_val, u32_ptr, p_size)
-                    {
                         info->img_entry = u32_val;
-                    }
                     
                     rt_strncpy(rt_hyp.vms[vmid].name, vm_child->name, RT_NAME_MAX);
                     rt_hyp.vms[vmid].status = VM_STAT_NEVER_RUN;
@@ -142,9 +136,7 @@ rt_err_t vm_info_init(void)
                             rt_size_t dev_index = 0;
 
                             for_each_property_cell(sub_node, "interrupts", u32_val, u32_ptr, p_size)
-                            {
                                 info->devs[dev_index].interrupts = u32_val;
-                            }
 
                             index = 0;
                             for_each_property_cell(sub_node, "reg", u32_val, u32_ptr, p_size)
@@ -175,13 +167,12 @@ rt_err_t vm_info_init(void)
 
 int rt_hyp_init(void)
 {
-    rt_hyp.total_vm = 0;
-
     rt_hyp.phy_mem_size = HYP_MEM_SIZE;
     rt_hyp.phy_mem_used = 0;
 
-    rt_hyp.curr_vm = 0;
-
+    rt_hyp.total_vm = 0;
+    rt_hyp.curr_vm  = 0;
+    rt_hyp.curr_vc  = MAX_VM_NUM;    /* MAX_VM_NUM == Host using UART */
     rt_memset((void *)&rt_hyp.vms, 0, MAX_VM_NUM * sizeof(struct vm));
     vm_info_init();
     hyp_info("Support %d VMs max, Now load %d VMs", MAX_VM_NUM, rt_hyp.total_vm);
@@ -192,11 +183,7 @@ int rt_hyp_init(void)
     
     for (rt_size_t i = 0; i < RT_CPUS_NR; i++)
         rt_hyp.arch.cpu_hyp_enabled[i] = RT_FALSE;
-
     rt_hyp.arch.hyp_init_ok = RT_FALSE;
-
-    rt_hyp.curr_vc = MAX_VM_NUM;    /* MAX_VM_NUM == Host using UART */
-
     hyp_info("rt_hyp init OK");
     return RT_EOK;
 }

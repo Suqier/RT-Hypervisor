@@ -91,7 +91,7 @@ vcpu_t vcpu_create(vm_t vm, rt_uint32_t vcpu_id)
     vcpu->vm = vm;
     vm->vcpus[vcpu_id] = vcpu;
     
-    vtimer_ctxt_create(vcpu);
+    vtimer_init(vcpu);
     rt_memset(arch, 0, sizeof(struct vcpu_arch));
     vcpu_state_init(vcpu);
     vcpu_spsr_init((rt_ubase_t)vcpu->tid->sp);
@@ -216,6 +216,9 @@ void vcpu_fault(vcpu_t vcpu)
 
 struct vcpu *vcpu_get_irq_owner(int ir)
 {
+    if (ir == 26)    /* EL2_PHY_TIMER_IRQ_NUM */
+        return RT_NULL;
+    
     for (rt_size_t i = 0; i < MAX_VM_NUM; i++)
     {
         rt_uint16_t stat = rt_hyp.vms[i].status;
@@ -230,15 +233,14 @@ struct vcpu *vcpu_get_irq_owner(int ir)
                     virq_t virq = &v->gicr[j].virqs[ir];
                     if (virq->enable && virq->hw)
                         return rt_hyp.vms[i].vcpus[j];
-
                 }
             }
             else    /* Find vIRQ in gicd */
             {
                 if (v->gicd)
                 {
-                    if (v->gicd->virqs[ir - VIRQ_PRIV_NUM].enable == RT_TRUE
-                    &&  v->gicd->virqs[ir - VIRQ_PRIV_NUM].hw     == RT_TRUE)
+                    virq_t virq = &v->gicd->virqs[ir - VIRQ_PRIV_NUM];
+                    if (virq->enable && virq->hw)
                         return rt_hyp.vms[i].vcpus[0];     // main core?
                 }
                 else
