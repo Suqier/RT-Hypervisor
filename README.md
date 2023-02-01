@@ -7,11 +7,11 @@ RT-Hypervisor: A real-time hypervisor for automotive embedded system
 
 ### QEMU启动命令：
 ```
-qemu-system-aarch64 -M virt,gic-version=3 -cpu cortex-a53 -machine virtualization=on -kernel **rtthread.elf** -nographic \
--device loader,file=**./qemu/rtthread-std-.bin**,addr=0x45000000 \
--device loader,file=**./dump.dtb**,addr=0x46000000
+qemu-system-aarch64 -M virt,gic-version=3 -cpu cortex-a53 -machine virtualization=on -kernel rtthread.elf -nographic \
+-device loader,file=./qemu/rtthread-std-.bin,addr=0x45000000 \
+-device loader,file=./dump.dtb,addr=0x46000000
 ```
-#### 注意文件路径（RT-Hypervisor/bsp/qemu-virt64-aarch64）和需要补充的文件
+#### 注意上述启动命令使用的文件路径（RT-Hypervisor/bsp/qemu-virt64-aarch64）和需要补充的文件
 * `rtthread.elf`：编译出的虚拟化镜像文件
 * `./qemu/rtthread-std-.bin`：`Guest OS`镜像文件，按需修改
 * `./dump.dtb`: 系统设备树数据文件，按需修改
