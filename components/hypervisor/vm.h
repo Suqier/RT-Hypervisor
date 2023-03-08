@@ -13,10 +13,13 @@
 
 #include "mm.h"
 #include "vconsole.h"
+#include "vgic.h"
+#include "vtimer.h"
 
 #define THREAD_TIMESLICE    5
 
 #define MAX_VCPU_NUM    4      /* per vm */
+#define MAX_DEVS_NUM    4      /* per vm */
 #define VM_NAME_SIZE    16
 #define L1_CACHE_BYTES  64
 
@@ -36,11 +39,11 @@
 
 enum 
 {
-    VCPU_STATUS_OFFLINE = 0,
-    VCPU_STATUS_ONLINE,
-    VCPU_STATUS_SUSPEND,
-    VCPU_STATUS_NEVER_RUN,
-    VCPU_STATUS_UNKNOWN,
+    VCPU_STAT_OFFLINE = 0,
+    VCPU_STAT_ONLINE,
+    VCPU_STAT_SUSPEND,
+    VCPU_STAT_NEVER_RUN,
+    VCPU_STAT_UNKNOWN,
 };
 
 struct vcpu
@@ -51,19 +54,64 @@ struct vcpu
 
     struct vm *vm;
     rt_thread_t tid;
-    struct vtimer_context *vtc;
+    struct vtimer_context vtc;
 
     struct vcpu_arch *arch;  /* vcpu arch related content. */
 }__attribute__((aligned(L1_CACHE_BYTES)));
 typedef struct vcpu *vcpu_t;
 
+enum
+{
+    OS_TYPE_LINUX = 0,
+    OS_TYPE_RT_THREAD,
+    OS_TYPE_OTHER,
+};
+
 enum 
 {
-    VM_STATUS_OFFLINE = 0,
-    VM_STATUS_ONLINE,
-    VM_STATUS_SUSPEND,
-    VM_STATUS_NEVER_RUN,
-    VM_STATUS_UNKNOWN,
+    VM_STAT_IDLE = 0,
+    VM_STAT_OFFLINE,
+    VM_STAT_ONLINE,
+    VM_STAT_SUSPEND,
+    VM_STAT_NEVER_RUN,
+    VM_STAT_UNKNOWN,
+};
+
+struct dev_info
+{
+    rt_uint64_t pa_addr;
+    rt_uint64_t va_addr;
+    rt_uint64_t size;
+    rt_uint64_t interrupts;
+};
+
+struct vm_info 
+{
+    /* OS image info */
+    rt_uint64_t img_addr;
+    rt_uint64_t img_size;
+    rt_uint64_t img_entry;
+    rt_uint64_t img_type;
+
+    /* CPU info      */
+    rt_uint32_t affinity[MAX_VCPU_NUM];
+    rt_uint32_t nr_vcpus;
+    
+    /* Memory info   */
+    rt_uint64_t va_addr;
+    rt_uint64_t va_size;
+    rt_uint32_t pa_addr;
+    rt_uint32_t pa_size;
+
+    /* vGIC: GICD, GICR */
+    rt_uint64_t gicd_addr;
+    rt_uint64_t gicr_addr;
+    rt_uint32_t maintenance_id;
+    rt_uint32_t virq_num;
+
+    /* Device: UART */
+    struct dev_info devs[MAX_DEVS_NUM];
+    rt_uint32_t dev_num;
 };
 
 struct vm
@@ -72,9 +120,8 @@ struct vm
     rt_uint16_t status;
     
     char name[VM_NAME_SIZE];
-    struct mm_struct *mm;    /* userspace tied to this vm */
-    const struct os_desc *os;
-    rt_uint8_t os_idx;
+    struct mm_struct mm;    /* userspace tied to this vm */
+    struct vm_info info;
 
 #ifdef RT_USING_SMP
     rt_hw_spinlock_t vm_lock;
@@ -83,23 +130,32 @@ struct vm
     struct vm_arch *arch;
 
     /* A array for collect vcpu. */
-    rt_uint8_t nr_vcpus;
-    rt_uint32_t vcpu_affinity[MAX_VCPU_NUM];
     vcpu_t *vcpus;
 
     /* vGIC */
-    struct vgic *vgic;
+    struct vgic vgic;
 
-    /* vTimer | TBD */
+    /* vTimer | @TODO */
     
     /* For TTY and so on */
     rt_list_t dev_list;
 }__attribute__((aligned(L1_CACHE_BYTES)));
 typedef struct vm *vm_t;
 
-rt_inline vcpu_t get_vcpu_by_thread(rt_thread_t tid) { return (vcpu_t)tid->vcpu; }
-rt_inline vcpu_t get_curr_vcpu(void)                 { return get_vcpu_by_thread(rt_thread_self()); }
-rt_inline vm_t   get_curr_vm(void)                   { return get_curr_vcpu()->vm; }
+rt_inline vcpu_t get_vcpu_by_thread(rt_thread_t tid) 
+{
+    return (vcpu_t)tid->vcpu; 
+}
+
+rt_inline vcpu_t get_curr_vcpu(void)                 
+{ 
+    return get_vcpu_by_thread(rt_thread_self()); 
+}
+
+rt_inline vm_t   get_curr_vm(void)                   
+{ 
+    return get_curr_vcpu()->vm; 
+}
 
 /*
  * For vCPU
@@ -118,7 +174,7 @@ struct vcpu *vcpu_get_irq_owner(int ir);
  * For VM
  */
 rt_err_t os_img_load(vm_t vm);
-void vm_config_init(vm_t vm, rt_uint8_t vm_idx);
+void vm_config_init(vm_t vm);
 rt_err_t vm_init(vm_t vm);
 void vm_go(vm_t vm);
 void vm_suspend(vm_t vm);

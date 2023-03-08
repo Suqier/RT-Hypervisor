@@ -275,7 +275,7 @@ struct vgic
     struct vgic_info info;
 
     vgicd_t gicd;
-    vgicr_t gicr[MAX_VCPU_NUM];
+    struct vgicr gicr[MAX_VCPU_NUM];
 
     struct vgic_context ctxt;
     const struct vgic_ops *ops;
@@ -299,7 +299,6 @@ rt_inline rt_bool_t is_virq_hw(virq_t virq)
 rt_inline rt_bool_t is_virq_priv(virq_t virq)
 {   return (virq->vINIID < VIRQ_PRIV_NUM);  }
 
-vgic_t vgic_create(void);
 void vgicd_init(struct vm *vm, vgicd_t gicd);       /* using when vgic init in init VM */
 void vgicr_init(vgicr_t gicr, struct vcpu *vcpu);   /* using when create vcpu */
 void vgic_init (struct vm *vm);
@@ -309,7 +308,6 @@ void hook_vgic_context_save(struct vcpu *vcpu);
 void hook_vgic_context_restore(struct vcpu *vcpu);
 
 virq_t vgic_get_virq(struct vcpu *vcpu, int ir);
-void vgic_virq_register(struct vm *vm);
 void vgic_virq_mount(struct vm *vm, int ir);
 void vgic_virq_umount(struct vm *vm, int ir);
 

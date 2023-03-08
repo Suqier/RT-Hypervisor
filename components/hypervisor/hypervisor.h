@@ -46,20 +46,17 @@ struct hypervisor
     rt_hw_spinlock_t hyp_lock;
 #endif
 
-    rt_uint32_t vm_bitmap;
-    rt_uint8_t next_vm_idx;
-    rt_uint8_t curr_vm_idx;
-    rt_uint8_t total_vm;
-    vm_t vms[MAX_VM_NUM];
-
-    rt_uint8_t curr_vc_idx;
+    struct vm vms[MAX_VM_NUM];
+    rt_uint32_t total_vm;
+    rt_uint32_t curr_vm;
+    rt_uint32_t curr_vc;
 
     struct hyp_arch arch;
 };
 
 extern struct hypervisor rt_hyp;
 
-rt_err_t rt_hypervisor_init(void);
+int rt_hypervisor_init(void);
 
 void list_os_img(void);
 void list_vm(void);

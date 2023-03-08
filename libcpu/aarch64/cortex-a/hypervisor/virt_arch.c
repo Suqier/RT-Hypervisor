@@ -12,6 +12,8 @@
 
 #include "stage2.h"
 #include "virt_arch.h"
+#include "hyp_debug.h"
+#include "vm.h"
 
 rt_bool_t arm_vhe_supported(void)
 {
@@ -54,7 +56,7 @@ void __flush_all_tlb(void)
 
 void flush_vm_all_tlb(vm_t vm)
 {
-    struct mm_struct *mm = vm->mm;
+    struct mm_struct *mm = &vm->mm;
     rt_uint64_t vttbr = ((rt_uint64_t)mm->pgd_tbl & S2_VA_MASK) 
                       | ((rt_uint64_t)vm->id << VMID_SHIFT);
 
@@ -100,7 +102,7 @@ void vcpu_state_init(struct vcpu *vcpu)
     c->sys_regs[_SCTLR_EL1]   = 0x00C50078;
 
     vm->arch->vtcr_el2  = get_vtcr_el2();
-    vm->arch->vttbr_el2 = ((rt_uint64_t)vm->mm->pgd_tbl & S2_VA_MASK) 
+    vm->arch->vttbr_el2 = ((rt_uint64_t)vm->mm.pgd_tbl & S2_VA_MASK) 
                         | ((rt_uint64_t)vm->id << VMID_SHIFT);
 }
 
@@ -194,8 +196,8 @@ static void activate_trap(struct vcpu *vcpu)
     /* With VHE (HCR.E2H == 1), accesses to CPACR_EL1 are routed to CPTR_EL2 */
     SET_SYS_REG(CPACR_EL1, val);
 
-    extern void *system_vectors;    /* TBD */
-    SET_SYS_REG(VBAR_EL1, &system_vectors);
+    // extern void *system_vectors;    /* @TODO */
+    // SET_SYS_REG(VBAR_EL1, &system_vectors);
 }
 
 static void load_stage2_setting(struct vcpu *vcpu)
@@ -279,6 +281,7 @@ void host_to_guest_arch_handler(struct vcpu *vcpu)
     activate_trap(vcpu);
     load_stage2_setting(vcpu);  // interrupts disabled ?
     hook_vgic_context_restore(vcpu);
+    hook_vtimer_context_restore(&vcpu->vtc, vcpu);
 }
 
 /*
@@ -291,23 +294,24 @@ void guest_to_host_arch_handler(struct vcpu *vcpu)
     deactivate_trap(vcpu);
     hook_vcpu_regs_save(vcpu);
     hook_vgic_context_save(vcpu);
+    hook_vtimer_context_save(&vcpu->vtc, vcpu);
 }
 
 /* 
- * From vCPU_1 to vCPU_2 in same vm, most of runtime env need not to change.
+ * From vCPU_1 to vCPU_2 in same VM, most of runtime env need not to change.
  * Just GP_REGs need to change by RESTORE_CONTEXT & SAVE_CONTEXT.
  */
 void vcpu_to_vcpu_arch_handler(vcpu_t from, struct vcpu *to)
 {
-    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
+    hyp_debug("%s, %d", __FUNCTION__, __LINE__);
 }
 
 /*
- * From vCPU_1 to vCPU_2 in different vm.
+ * From vCPU_1 to vCPU_2 in different VM.
  */
 void guest_to_guest_arch_handler(struct vcpu *from, struct vcpu *to)
 {
-    rt_kprintf("[Debug] %s, %d\n", __FUNCTION__, __LINE__);
+    hyp_debug("%s, %d", __FUNCTION__, __LINE__);
 
     /* save guest_1 runtime env */
 

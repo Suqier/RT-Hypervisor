@@ -12,6 +12,8 @@
 #include "bitmap.h"
 #include "stage2.h"
 #include "virt_arch.h"
+#include "hyp_debug.h"
+#include "vm.h"
 
 /* 
  * VM Page Table 
@@ -92,7 +94,7 @@ static unsigned long _kernel_free_s2_page(rt_uint8_t vm_idx)
     int i = bitmap_find_next(&s2_page_bitmap[vm_idx]);
     if (i == MMU_TBL_PAGE_NR_MAX - 1 && bitmap_get_bit(&s2_page_bitmap[vm_idx], i))
     {
-        rt_kprintf("[Error] No more page can alloc for %d-th VM.\n", vm_idx);
+        hyp_err("%dth VM: No more page can allocate", vm_idx);
         return RT_NULL;
     }
        
@@ -182,8 +184,8 @@ static rt_err_t s2_map_pmd(pmd_t *pmd_tbl, struct mem_desc *desc, rt_uint8_t vm_
         {
             /* map 2M memory */
             pmd_t block_val = desc->attr | (desc->paddr_start & L2_BLOCK_OA_MASK);
-            // rt_kprintf("[Info] S2 map 2M pa&attr=0x%08x at pmd_ptr=0x%08x, va=0x%08x\n", 
-            //         block_val, pmd_ptr, desc->vaddr_start);
+            hyp_debug("S2 map 2M pa&attr=0x%08x at pmd_ptr=0x%08x, va=0x%08x", 
+                    block_val, pmd_ptr, desc->vaddr_start);
             s2_set_pmd(pmd_ptr, block_val);
         }
         else
@@ -203,7 +205,7 @@ static rt_err_t s2_map_pmd(pmd_t *pmd_tbl, struct mem_desc *desc, rt_uint8_t vm_
 
                 rt_memset(pte_tbl, 0, RT_MM_PAGE_SIZE);
                 pte_tbl = (pte_t *)(MMU_TYPE_TABLE | ((rt_uint64_t)pte_tbl & TABLE_ADDR_MASK));
-                rt_kprintf("[Info] map pte_tbl&attr=0x%016x at pmd_ptr=0x%016x\n", pte_tbl, pmd_ptr);
+                hyp_debug("Map pte_tbl&attr=0x%08x at pmd_ptr=0x%08x", pte_tbl, pmd_ptr);
                 s2_set_pmd(pmd_ptr, (pmd_t)pte_tbl);
             }
 
@@ -235,7 +237,7 @@ static rt_err_t s2_map_pud(pud_t *pud_tbl, struct mem_desc *desc, rt_uint8_t vm_
         {
             /* map 1G memory */
             pud_t block_val = desc->attr | (desc->paddr_start & L1_BLOCK_OA_MASK);
-            rt_kprintf("[Info] S2 map 1G pa&attr=0x%016x at pud_ptr=0x%08x\n", block_val, pud_ptr);
+            hyp_info("S2 map 1G pa&attr=0x%08x at pud_ptr=0x%08x", block_val, pud_ptr);
             s2_set_pud(pud_ptr, block_val);
         }
         else
@@ -255,7 +257,7 @@ static rt_err_t s2_map_pud(pud_t *pud_tbl, struct mem_desc *desc, rt_uint8_t vm_
 
                 rt_memset(pmd_tbl, 0, RT_MM_PAGE_SIZE);
                 pmd_tbl = (pmd_t *)(MMU_TYPE_TABLE | ((rt_uint64_t)pmd_tbl & TABLE_ADDR_MASK));
-                // rt_kprintf("[Info] set pmd_tbl&attr=0x%08x at pud_ptr=0x%08x\n", pmd_tbl, pud_ptr);
+                hyp_debug("Set pmd_tbl&attr=0x%08x at pud_ptr=0x%08x", pmd_tbl, pud_ptr);
                 s2_set_pud(pud_ptr, (pud_t)pmd_tbl);
             }
         

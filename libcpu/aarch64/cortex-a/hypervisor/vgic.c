@@ -15,11 +15,8 @@
 #include "gicv3.h"
 #include "vgic.h"
 #include "vm.h"
-#include "os.h"
-
-#define MAX_OS_NUM  3
-
-extern const struct os_desc os_img[MAX_OS_NUM];
+#include "hyp_debug.h"
+#include "virt_arch.h"
 
 const static struct vgic_ops vgic_ops = 
 {
@@ -33,29 +30,16 @@ static void vgic_lr_list_sort(struct vcpu *vcpu);
 static void vgic_lr_list_insert(struct vcpu *vcpu, rt_uint64_t lr);
 static void vgic_lr_list_remove(struct vcpu *vcpu, rt_size_t rm_idx);
 
-/* For vGIC create & init */
-vgic_t vgic_create(void)
-{
-    vgic_t v = (vgic_t)rt_malloc(sizeof(struct vgic));
-
-    if (v == RT_NULL)
-    {
-        rt_free(v);
-        rt_kputs("[Error] Alloc meomry for vGIC failure.\n");
-        return RT_NULL;
-    }
-
-    rt_memset((void *)v, 0, sizeof(struct vgic));
-    return v;
-}
-
+/* 
+ * For vGIC init 
+ */
 void vgicd_init(struct vm *vm, vgicd_t gicd)
 {
     RT_ASSERT(gicd);
     rt_uint32_t hw_base = platform_get_gic_dist_base();
 
     /* get from device tree */ 
-    gicd->virq_num = vm->os->arch.vgic.virq_num;
+    gicd->virq_num = vm->info.virq_num;
     for (rt_size_t i = 0; i < gicd->virq_num - VIRQ_PRIV_NUM; i++)
     {
         gicd->virqs[i].vINIID = i + VIRQ_PRIV_NUM;
@@ -74,7 +58,7 @@ void vgicd_init(struct vm *vm, vgicd_t gicd)
     gicd->CTLR = 0;
     gicd->IIDR = GIC_DIST_IIDR(hw_base);
     gicd->TYPE = ((it_line_num << GICD_TYPE_IT_OFF) & GICD_TYPE_IT_MASK) |
-    (((vm->nr_vcpus - 1) << GICD_TYPE_CPU_OFF) & GICD_TYPE_CPU_MASK) |
+    (((vm->info.nr_vcpus - 1) << GICD_TYPE_CPU_OFF) & GICD_TYPE_CPU_MASK) |
     (((10 - 1) << GICD_TYPE_IDBITS_OFF) & GICD_TYPE_IDBITS_MASK);
 }
 
@@ -87,10 +71,11 @@ void vgicr_init(vgicr_t gicr, struct vcpu *vcpu)
     gicr->IIDR = GIC_RDIST_IIDR(hw_base);
     gicr->TYPE = vcpu->id << GICR_TYPE_PN_OFF | 
     (vcpu->arch->vcpu_ctxt.sys_regs[_MPIDR_EL1] & MPIDR_AFF_MSK) << GICR_TYPE_AFF_OFF |
-    !!(vcpu->id == vcpu->vm->nr_vcpus - 1) << GICR_TYPE_LAST_OFF;
+    !!(vcpu->id == vcpu->vm->info.nr_vcpus - 1) << GICR_TYPE_LAST_OFF;
 
     /* get from device tree */ 
     rt_memset((void *)&gicr->lr_list, 0, GIC_LR_LIST_NUM * sizeof(rt_uint64_t));
+    gicr->tail = 0;
 
     for (rt_size_t i = 0; i < VIRQ_PRIV_NUM; i++)
     {
@@ -111,43 +96,39 @@ void vgicr_init(vgicr_t gicr, struct vcpu *vcpu)
         gicr->virqs[i].cfg = 0b10;
 }
 
-static void vgic_info_init(struct vgic_info *info, rt_uint64_t os_idx)
+static void vgic_info_init(struct vgic_info *info, struct vm *vm)
 {
-    info->gicd_addr = os_img[os_idx].arch.vgic.gicd_addr;
-    info->gicr_addr = os_img[os_idx].arch.vgic.gicr_addr;
+    info->gicd_addr = vm->info.gicd_addr;
+    info->gicr_addr = vm->info.gicr_addr;
 }
 
 void vgic_init(struct vm *vm)
 {
     RT_ASSERT(vm);
-    vgic_t v = vm->vgic;
-    rt_uint64_t os_idx = vm->os_idx;
+    vgic_t v = &vm->vgic;
 
-    vgicd_t gicd = (vgicd_t)rt_malloc(sizeof(struct vgicd));
+    vgicd_t gicd = (vgicd_t)rt_malloc_align(sizeof(struct vgicd), 0x2000);
     if (gicd == RT_NULL)
     {
-        rt_kputs("[Error] Alloc memory for gicd failure\n");
+        hyp_err("%dth VM: Allocate memory for gicd failure", vm->id);
         return;
     }
-    
-    rt_kprintf("0x%08x - 0x%08x\n", gicd, gicd + sizeof(struct vgicd));
-    vm->vgic->gicd = gicd;
+    else
+    {
+        hyp_debug("gicd = 0x%08x, size = 0x%08x", gicd, sizeof(struct vgicd));
+        vm->vgic.gicd = gicd;
+        vgicd_init(vm, v->gicd);
+    }
 
-    vgicd_init(vm, v->gicd);
-    for (rt_size_t i = 0; i < vm->nr_vcpus; i++)
+    for (rt_size_t i = 0; i < vm->info.nr_vcpus; i++)
     {
         if (vm->vcpus[i])
-        {
-            vgicr_t gicr = (vgicr_t)rt_malloc(sizeof(struct vgicr));
-            RT_ASSERT(gicr);
-            vm->vgic->gicr[i] = gicr;
-            vgicr_init(v->gicr[i], vm->vcpus[i]);
-        }
+            vgicr_init(&v->gicr[i], vm->vcpus[i]);
         else
             break;
     }
 
-    vgic_info_init(&v->info, os_idx);
+    vgic_info_init(&v->info, vm);
     rt_memset((void *)&v->ctxt, 0, sizeof(struct vgic_context));
     v->ops = &vgic_ops;
 
@@ -175,7 +156,7 @@ void vgic_free(vgic_t v)
  */
 static void vgic_gicd_write_isenabler(rt_uint64_t off, rt_uint64_t *val)
 {
-    vgic_t v = get_curr_vm()->vgic; 
+    vgic_t v = &get_curr_vm()->vgic; 
     off = (off - GICD_ISEN_OFF) / 4;
     int irq = 32 * off;
 
@@ -193,7 +174,7 @@ static void vgic_gicd_write_isenabler(rt_uint64_t off, rt_uint64_t *val)
 
 static void vgic_gicd_write_icenabler(rt_uint64_t off, rt_uint64_t *val)
 {
-    vgic_t v = get_curr_vm()->vgic; 
+    vgic_t v = &get_curr_vm()->vgic; 
     off = (off - GICD_ICEN_OFF) / 4;
     int irq = 32 * off;
 
@@ -212,7 +193,7 @@ static void vgic_gicd_write_icenabler(rt_uint64_t off, rt_uint64_t *val)
 
 static void vgic_gicd_write_ispend(rt_uint64_t off, rt_uint64_t *val)
 {
-    vgic_t v = get_curr_vm()->vgic; 
+    vgic_t v = &get_curr_vm()->vgic; 
     off = (off - GICD_ISPND_OFF) / 4;
     int irq = 32 * off;
 
@@ -240,7 +221,7 @@ static void vgic_gicd_write_ispend(rt_uint64_t off, rt_uint64_t *val)
 
 static void vgic_gicd_write_icpend(rt_uint64_t off, rt_uint64_t *val)
 {
-    vgic_t v = get_curr_vm()->vgic;
+    vgic_t v = &get_curr_vm()->vgic;
     off = (off - GICD_ICPND_OFF) / 4;
     int irq = 32 * off;
 
@@ -268,7 +249,7 @@ static void vgic_gicd_write_icpend(rt_uint64_t off, rt_uint64_t *val)
 
 static void vgic_gicd_write_priority(rt_uint64_t off, rt_uint64_t *val)
 {
-    vgic_t v = get_curr_vm()->vgic; 
+    vgic_t v = &get_curr_vm()->vgic; 
     off = (off - GICD_PRIO_OFF) / 4;
     int irq = 4 * off;
 
@@ -285,7 +266,7 @@ static void vgic_gicd_write_icfgr(rt_uint64_t off, rt_uint64_t *val)
 {
     off = (off - GICD_ICFGR_OFF) / 4;
     int irq = 16 * off;
-    vgic_t v = get_curr_vm()->vgic; 
+    vgic_t v = &get_curr_vm()->vgic; 
 
     for (rt_size_t i = 0; i < 16; i++, irq++)
     {
@@ -308,7 +289,7 @@ static vgic_gicd_write_t vgic_gicd_write_handlers[UPDATE_MAX] =
 
 static void vgic_gicd_write_emulate(rt_uint64_t off, rt_uint64_t *val)
 {
-    vgic_t v = get_curr_vm()->vgic;
+    vgic_t v = &get_curr_vm()->vgic;
     rt_uint8_t update_id = UPDATE_MAX;
 
     switch (off)
@@ -348,7 +329,7 @@ static void vgic_gicd_write_emulate(rt_uint64_t off, rt_uint64_t *val)
 
 static void vgic_gicr_rd_emulate(rt_uint64_t off, access_info_t acc, rt_uint64_t *val)
 {
-    vgic_t v = get_curr_vm()->vgic;
+    vgic_t v = &get_curr_vm()->vgic;
     rt_uint32_t vcpu_id = get_curr_vcpu()->id;
 
     switch (off)
@@ -356,17 +337,17 @@ static void vgic_gicr_rd_emulate(rt_uint64_t off, access_info_t acc, rt_uint64_t
     case GICR_CTLR_OFF:
     {
         if (acc.is_write)
-            v->gicr[vcpu_id]->CTLR = *val;
+            v->gicr[vcpu_id].CTLR = *val;
         else
-            *val = v->gicr[vcpu_id]->CTLR;
+            *val = v->gicr[vcpu_id].CTLR;
     } break;
     case GICR_IIDR_OFF:
         if (!acc.is_write)
-            *val = v->gicr[vcpu_id]->IIDR;
+            *val = v->gicr[vcpu_id].IIDR;
         break;
     case GICR_TYPE_OFF:
         if (!acc.is_write)
-            *val = v->gicr[vcpu_id]->TYPE;
+            *val = v->gicr[vcpu_id].TYPE;
         break;
 
     default:
@@ -377,12 +358,12 @@ static void vgic_gicr_rd_emulate(rt_uint64_t off, access_info_t acc, rt_uint64_t
 
 static void vgic_gicr_sgi_write_isenabler(rt_uint64_t off, rt_uint64_t *val)
 {
-    vgic_t v = get_curr_vm()->vgic; 
+    vgic_t v = &get_curr_vm()->vgic; 
     rt_uint32_t vcpu_id = get_curr_vcpu()->id;
 
     for (rt_size_t i = 0; i < 32; i++)
     {
-        virq_t virq = &v->gicr[vcpu_id]->virqs[i];
+        virq_t virq = &v->gicr[vcpu_id].virqs[i];
         if (*val & 0b1)
         {
             virq->enable = RT_TRUE;
@@ -395,12 +376,12 @@ static void vgic_gicr_sgi_write_isenabler(rt_uint64_t off, rt_uint64_t *val)
 
 static void vgic_gicr_sgi_write_icenabler(rt_uint64_t off, rt_uint64_t *val)
 {
-    vgic_t v = get_curr_vm()->vgic; 
+    vgic_t v = &get_curr_vm()->vgic; 
     rt_uint32_t vcpu_id = get_curr_vcpu()->id;
 
     for (rt_size_t i = 0; i < 32; i++)
     {
-        virq_t virq = &v->gicr[vcpu_id]->virqs[i];
+        virq_t virq = &v->gicr[vcpu_id].virqs[i];
         if (*val & 0b1)
         {
             virq->enable = RT_FALSE;
@@ -413,14 +394,14 @@ static void vgic_gicr_sgi_write_icenabler(rt_uint64_t off, rt_uint64_t *val)
 
 static void vgic_gicr_sgi_write_ispend(rt_uint64_t off, rt_uint64_t *val)
 {
-    vgic_t v = get_curr_vm()->vgic; 
+    vgic_t v = &get_curr_vm()->vgic; 
     rt_uint32_t vcpu_id = get_curr_vcpu()->id;
 
     for (rt_size_t i = 0; i < 32; i++)
     {
         if (*val & 0b1)
         {
-            virq_t virq = &v->gicr[vcpu_id]->virqs[i];
+            virq_t virq = &v->gicr[vcpu_id].virqs[i];
 
             if (virq->state == VIRQ_STATUS_INACTIVE)
             {
@@ -441,14 +422,14 @@ static void vgic_gicr_sgi_write_ispend(rt_uint64_t off, rt_uint64_t *val)
 
 static void vgic_gicr_sgi_write_icpend(rt_uint64_t off, rt_uint64_t *val)
 {
-    vgic_t v = get_curr_vm()->vgic; 
+    vgic_t v = &get_curr_vm()->vgic; 
     rt_uint32_t vcpu_id = get_curr_vcpu()->id;
 
     for (rt_size_t i = 0; i < 32; i++)
     {
         if (*val & 0b1)
         {
-            virq_t virq = &v->gicr[vcpu_id]->virqs[i];
+            virq_t virq = &v->gicr[vcpu_id].virqs[i];
 
             if (virq->state == VIRQ_STATUS_PENDING)
             {
@@ -471,12 +452,12 @@ static void vgic_gicr_sgi_write_priority(rt_uint64_t off, rt_uint64_t *val)
 {
     off = (off - GICR_PRIO_OFF) / 4;
     int irq = 4 * off;
-    vgic_t v = get_curr_vm()->vgic; 
+    vgic_t v = &get_curr_vm()->vgic; 
     rt_uint32_t vcpu_id = get_curr_vcpu()->id;
 
     for (rt_size_t i = 0; i < 4; i++, irq++)
     {
-        virq_t virq = &v->gicr[vcpu_id]->virqs[i];
+        virq_t virq = &v->gicr[vcpu_id].virqs[i];
         virq->prio = *val & 0xFFUL;
         v->ops->update(get_curr_vcpu(), virq, UPDATE_PRIO);
         *val = *val >> 8;
@@ -487,12 +468,12 @@ static void vgic_gicr_sgi_write_icfgr(rt_uint64_t off, rt_uint64_t *val)
 {
     off = (off - GICR_ICFGR0_OFF) / 4;
     int irq = 16 * off;
-    vgic_t v = get_curr_vm()->vgic; 
+    vgic_t v = &get_curr_vm()->vgic; 
     rt_uint32_t vcpu_id = get_curr_vcpu()->id;
 
     for (rt_size_t i = 0; i < 16; i++, irq++)
     {
-        virq_t virq = &v->gicr[vcpu_id]->virqs[i];
+        virq_t virq = &v->gicr[vcpu_id].virqs[i];
         virq->cfg = *val & 0b11;
         v->ops->update(get_curr_vcpu(), virq, UPDATE_ICFGR);
         *val = *val >> 2;
@@ -550,7 +531,7 @@ static void vgic_gicr_sgi_emulate(rt_uint64_t off, access_info_t acc, rt_uint64_
 
 void vgic_emulate(gp_regs_t regs, access_info_t acc, rt_bool_t gicd)
 {
-    vgic_t v = get_curr_vm()->vgic;
+    vgic_t v = &get_curr_vm()->vgic;
     unsigned long long *val = regs_xn(regs, acc.srt);
 
     if (gicd)
@@ -718,10 +699,10 @@ static void vgic_context_save_lr(struct vcpu *vcpu, rt_uint32_t nr_lr)
     {
         if(bit_get(elrsr, i) == 0)
         {
-            lr = read_lr(&vcpu->vm->vgic->ctxt, i);
+            lr = read_lr(&vcpu->vm->vgic.ctxt, i);
             vgic_lr_list_insert(vcpu, lr);
          
-            write_lr(&vcpu->vm->vgic->ctxt, i, 0);
+            write_lr(&vcpu->vm->vgic.ctxt, i, 0);
         }
     }
 }
@@ -744,7 +725,7 @@ static void vgic_context_save_arp(struct vgic_context *c, rt_uint32_t nr_pr)
 
 void hook_vgic_context_save(struct vcpu *vcpu)
 {
-    struct vgic_context *c = &vcpu->vm->vgic->ctxt;
+    struct vgic_context *c = &vcpu->vm->vgic.ctxt;
 
     vgic_context_save_lr(vcpu, c->nr_lr);
     vgic_context_save_arp(c, c->nr_pr);
@@ -760,7 +741,7 @@ static void vgic_context_restore_lr(struct vcpu *vcpu, rt_uint32_t nr_lr)
 {
     rt_size_t rm_idx = 0;
     rt_uint64_t elrsr = read_idle_lr_reg();
-    vgicr_t gicr = vcpu->vm->vgic->gicr[vcpu->id]; 
+    vgicr_t gicr = &vcpu->vm->vgic.gicr[vcpu->id]; 
 
     for (rt_size_t i = 0; i < nr_lr; i++)
     {
@@ -770,7 +751,7 @@ static void vgic_context_restore_lr(struct vcpu *vcpu, rt_uint32_t nr_lr)
                 break;
             else
             {
-                write_lr(&vcpu->vm->vgic->ctxt, i, gicr->lr_list[rm_idx]);
+                write_lr(&vcpu->vm->vgic.ctxt, i, gicr->lr_list[rm_idx]);
                 vgic_lr_list_remove(vcpu, rm_idx);
                 rm_idx++;
             }
@@ -798,7 +779,7 @@ static void vgic_context_restore_arp(struct vgic_context *c, rt_uint32_t nr_pr)
 
 void hook_vgic_context_restore(struct vcpu *vcpu)
 {
-    struct vgic_context *c = &vcpu->vm->vgic->ctxt;
+    struct vgic_context *c = &vcpu->vm->vgic.ctxt;
 
     vgic_context_restore_lr(vcpu, c->nr_lr);
     vgic_context_restore_arp(c, c->nr_pr);
@@ -842,33 +823,9 @@ virq_t vgic_get_virq(struct vcpu *vcpu, int ir)
     RT_ASSERT(vcpu);
 
     if (ir < VIRQ_PRIV_NUM)
-        return &vcpu->vm->vgic->gicr[vcpu->id]->virqs[ir];
+        return &vcpu->vm->vgic.gicr[vcpu->id].virqs[ir];
     else
-        return &vcpu->vm->vgic->gicd->virqs[ir - VIRQ_PRIV_NUM];
-}
-
-void vgic_virq_register(struct vm *vm)
-{
-    /* Associated Physical Interrupts */
-    const struct devs_info *devs = &os_img[vm->os_idx].devs;
-
-    for (rt_size_t i = 0; i < devs->num; i++)
-    {
-        rt_uint8_t int_num = devs->dev[i].interrupt_num;
-        
-        for (rt_size_t j = 0; j < int_num; j++)
-        {
-            rt_uint64_t virq_id = *devs->dev[i].interrupts;
-
-            if (virq_id < VIRQ_PRIV_NUM)   /* SGI + PPI */
-                continue;
-            else    /* SPI */
-            {
-                virq_t virq = &vm->vgic->gicd->virqs[virq_id];
-                virq->hw = RT_TRUE;
-            }
-        }
-    }
+        return &vcpu->vm->vgic.gicd->virqs[ir - VIRQ_PRIV_NUM];
 }
 
 /* After Host allocate someone device into VM, than mount VM's vIRQ. */
@@ -876,17 +833,18 @@ void vgic_virq_mount(struct vm *vm, int ir)
 {
     RT_ASSERT(vm);
 
-    for (rt_size_t i = 0; i < vm->nr_vcpus; i++)
+    for (rt_size_t i = 0; i < vm->info.nr_vcpus; i++)
     {
         if (vm->vcpus[i])
         {
-           virq_t virq = vgic_get_virq(vm->vcpus[i], ir);
-           if (virq->enable == RT_TRUE)
-           {
+            virq_t virq = vgic_get_virq(vm->vcpus[i], ir);
+            RT_ASSERT(virq->enable);
+            if (virq->enable == RT_TRUE)
+            {
                 virq->hw     = RT_TRUE;
                 virq->pINTID = ir;
                 return;
-           }
+            }
         }
     }
 }
@@ -895,7 +853,7 @@ void vgic_virq_umount(struct vm *vm, int ir)
 {
     RT_ASSERT(vm);
 
-    for (rt_size_t i = 0; i < vm->nr_vcpus; i++)
+    for (rt_size_t i = 0; i < vm->info.nr_vcpus; i++)
     {
         if (vm->vcpus[i])
         {
@@ -913,13 +871,13 @@ void vgic_virq_umount(struct vm *vm, int ir)
 static rt_bool_t vgic_is_lr_list_empty(struct vcpu *vcpu)
 {
     RT_ASSERT(vcpu);
-    return (vcpu->vm->vgic->gicr[vcpu->id]->tail == 0);
+    return (vcpu->vm->vgic.gicr[vcpu->id].tail == 0);
 }
 
 static rt_bool_t vgic_is_lr_list_full(struct vcpu *vcpu)
 {
     RT_ASSERT(vcpu);
-    return (vcpu->vm->vgic->gicr[vcpu->id]->tail == GIC_LR_LIST_NUM);
+    return (vcpu->vm->vgic.gicr[vcpu->id].tail == GIC_LR_LIST_NUM);
 }
 
 /*
@@ -965,14 +923,14 @@ static void vgic_lr_list_sort(struct vcpu *vcpu)
 {
     if (vgic_is_lr_list_empty(vcpu) == RT_FALSE)
     {
-        vgicr_t gicr = vcpu->vm->vgic->gicr[vcpu->id]; 
+        vgicr_t gicr = &vcpu->vm->vgic.gicr[vcpu->id]; 
         lr_list_heap_create(gicr->lr_list, 0, gicr->tail - 1);
     }
 }
 
 static rt_bool_t vgic_is_lr_in_list(struct vcpu *vcpu, rt_uint64_t lr)
 {
-    vgicr_t gicr = vcpu->vm->vgic->gicr[vcpu->id];
+    vgicr_t gicr = &vcpu->vm->vgic.gicr[vcpu->id];
 
     for (rt_size_t i = 0; i < gicr->tail; i++)
     {
@@ -988,7 +946,7 @@ static void vgic_lr_list_insert(struct vcpu *vcpu, rt_uint64_t lr)
 {
     if (!vgic_is_lr_list_full(vcpu) && !vgic_is_lr_in_list(vcpu, lr))
     {
-        vgicr_t gicr = vcpu->vm->vgic->gicr[vcpu->id];
+        vgicr_t gicr = &vcpu->vm->vgic.gicr[vcpu->id];
         gicr->lr_list[gicr->tail] = lr;
         gicr->lr_list[gicr->tail] |= (rt_uint64_t)1 << ICH_LR_RES0_OFF;
         gicr->tail++;
@@ -1001,7 +959,7 @@ static void vgic_lr_list_remove(struct vcpu *vcpu, rt_size_t rm_idx)
 {
     RT_ASSERT(vcpu);
 
-    vgicr_t gicr = vcpu->vm->vgic->gicr[vcpu->id]; 
+    vgicr_t gicr = &vcpu->vm->vgic.gicr[vcpu->id]; 
     RT_ASSERT(rm_idx >=0 && rm_idx < gicr->tail);
 
     rt_swap_lr_reg(&gicr->lr_list[rm_idx], &gicr->lr_list[--gicr->tail]);
@@ -1044,9 +1002,9 @@ void vgic_inject(struct vcpu *vcpu, virq_t virq)
     else
         vgic_lr_list_insert(vcpu, lr);
 
-    rt_uint32_t nr_lr = vcpu->vm->vgic->ctxt.nr_lr;
+    rt_uint32_t nr_lr = vcpu->vm->vgic.ctxt.nr_lr;
     rt_uint64_t elrsr = read_idle_lr_reg();
-    vgicr_t gicr = vcpu->vm->vgic->gicr[vcpu->id]; 
+    vgicr_t gicr = &vcpu->vm->vgic.gicr[vcpu->id]; 
     rt_size_t virq_size = gicr->tail + 1;
 
     for (rt_size_t i = 0; i < nr_lr; i++)
